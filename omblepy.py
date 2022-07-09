@@ -278,16 +278,17 @@ async def main():
         deviceName = args.device.strip("'").strip('\"') #strip quotes around arg
         sys.path.insert(0, "./deviceSpecific")
         try:
+            print(f"Attempt to import module for device {deviceName.lower()}")
             deviceSpecific = __import__(deviceName.lower())
         except ImportError:
             raise ValueError("the device is no supported yet, you can help by contributing :)")
     
     
-    validMacRegex = re.compile("/^([0-9a-f]{2}[:-]){5}([0-9a-f]{2})$/i")  
+    validMacRegex = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")  
     if(args.mac is not None):
         btmac = args.mac.strip("'").strip('\"') #strip quotes around arg
         if(validMacRegex.match(btmac) is None):
-            raise ValueError("argument after -m or --mac is not a valid mac address")
+            raise ValueError(f"argument after -m or --mac {btmac} is not a valid mac address")
         bleAddr = btmac
     else:
         print("To improve your chance of a successful connection please do the following:")
@@ -297,28 +298,28 @@ async def main():
         bleAddr = await selectBLEdevices()
     
     bleClient = bleak.BleakClient(bleAddr)
-    #try:
-    print(f"Attempt connecting to {bleAddr}.")
-    await bleClient.connect()
-    time.sleep(1)
-    #verify that the device is an omron device by checking presence of certain bluetooth services
-    services = await bleClient.get_services()
-    if parentService_UUID not in [service.uuid for service in services]:
-        raise OSError("""Some required bluetooth attributes not found on this ble device. 
-                         This means that either, you connected to a wrong device, 
-                         or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")
-    time.sleep(1)
-    if(args.pair):
-        await writeNewPairingKey(examplePairingKey)
-        print("Plase now restart omronpy without the -p flag.")
-        bleClient.disconnect()
-        exit(0)
-    else:
-        allRecs = await parseUserRecords()
-        writeCsv(allRecs)
-    #except Exception as e:
-    #    print(f"Error occured:\n{type(e)}\n{e}")
-    #finally:
-    #    await bleClient.disconnect()
+    try:
+        print(f"Attempt connecting to {bleAddr}.")
+        await bleClient.connect()
+        time.sleep(1)
+        #verify that the device is an omron device by checking presence of certain bluetooth services
+        services = await bleClient.get_services()
+        if parentService_UUID not in [service.uuid for service in services]:
+            raise OSError("""Some required bluetooth attributes not found on this ble device. 
+                             This means that either, you connected to a wrong device, 
+                             or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")
+        time.sleep(1)
+        if(args.pair):
+            await writeNewPairingKey(examplePairingKey)
+            print("Plase now restart omronpy without the -p flag.")
+            bleClient.disconnect()
+            exit(0)
+        else:
+            allRecs = await parseUserRecords()
+            writeCsv(allRecs)
+    except Exception as e:
+        print(f"Error occured:\n{type(e)}\n{e}")
+    finally:
+        await bleClient.disconnect()
 
 asyncio.run(main())
