@@ -86,6 +86,7 @@ class bluetoothTxRxHandler:
         return
     
     async def _waitForRxOrRetry(self, command, timeoutS = 1.0):
+        self.rxFinishedFlag = False
         retries = 0
         while True:
             currentTimeout = timeoutS
@@ -100,10 +101,47 @@ class bluetoothTxRxHandler:
             retries += 1
             if(retries > 5):
                 ValueError("Same transmission failed 5 times, abort")
+    
+    async def _unlockEepromAndEnableCallback(self):
+        await self._enableRxChannelNotifyAndCallback()
+        startDataReadout    = bytearray.fromhex("0800000000100018")
+        await self._waitForRxOrRetry(startDataReadout)
+        if(self.rxPacketType != bytearray.fromhex("8000")):
+            raise ValueError("invalid response to data readout start")
             
+    async def _lockEepromAndDisableCallback(self):
+        stopDataReadout         = bytearray.fromhex("080f000000000007")
+        await self._waitForRxOrRetry(stopDataReadout)
+        if(self.rxPacketType != bytearray.fromhex("8f00")):
+            raise ValueError("invlid response to data readout end")
+        await self._disableRxChannelNotifyAndCallback()
+    
+    async def _writeBlockEeprom(self, address, dataByteArray):
+        if(len(dataByteArray) > 0x08):
+            raise ValueError("single write commands larger than 8 bytes not possible")
+        dataWriteCommand = bytearray.fromhex("1001c0")  
+        dataWriteCommand += address.to_bytes(2, 'big')
+        dataWriteCommand += len(dataByteArray).to_bytes(1, 'big')
+        dataWriteCommand += dataByteArray
+        #calculate and append crc
+        xorCrc = 0
+        for byte in dataWriteCommand:
+            xorCrc ^= byte
+        dataWriteCommand += b'\x00'
+        dataWriteCommand.append(xorCrc)
+        
+        print(f"Write command. {convertByteArrayToHexString(dataWriteCommand)}")
+        
+        await self._waitForRxOrRetry(dataWriteCommand)
+        if(self.rxEepromAddress != address.to_bytes(2, 'big')):
+            raise ValueError(f"recieved packet address {self.rxEepromAddress} does not match the written address {address.to_bytes(2, 'big')}")
+        if(self.rxPacketType != bytearray.fromhex("81c0")):
+            raise ValueError("Invalid packet type in eeprom write")
+        return
+    
     async def _readBlockEeprom(self, address, blocksize):
         dataReadCommand = bytearray.fromhex("080100")  
-        dataReadCommand +=   address.to_bytes(2, 'big')
+        dataReadCommand += address.to_bytes(2, 'big')
         dataReadCommand += blocksize.to_bytes(1, 'big')  
         #calculate and append crc
         xorCrc = 0
@@ -111,28 +149,38 @@ class bluetoothTxRxHandler:
             xorCrc ^= byte
         dataReadCommand += b'\x00'
         dataReadCommand.append(xorCrc)
-        self.rxFinishedFlag = False
         await self._waitForRxOrRetry(dataReadCommand)
         if(self.rxEepromAddress != address.to_bytes(2, 'big')):
             raise ValueError(f"revieved packet address {self.rxEepromAddress} does not match requested address {address.to_bytes(2, 'big')}")
         if(self.rxPacketType != bytearray.fromhex("8100")):
             raise ValueError("Invalid packet type in eeprom read")
         return self.rxDataBytes
+    
+    async def writeContinuousEepromData(self, startAddress, bytesArrayToWrite):
+        print("data write start...")
         
-    async def readContinuousEEPROMdata(self, startAddress, bytesToRead, btBlockSize = 0x38):
+        await self._unlockEepromAndEnableCallback()
+        
+        while(len(bytesArrayToWrite) != 0):
+            nextSubblockSize = min(len(bytesArrayToWrite), 0x08)
+            print(f"write at {hex(startAddress)} size {hex(nextSubblockSize)}")
+            await self._writeBlockEeprom(startAddress, bytesArrayToWrite[:nextSubblockSize])
+            bytesArrayToWrite = bytesArrayToWrite[nextSubblockSize:]
+            print(bytesArrayToWrite)
+        
+        await self._lockEepromAndDisableCallback()
+        
+        return
+    
+    async def readContinuousEepromData(self, startAddress, bytesToRead, btBlockSize = 0x38):
+        print("data read start...")
+        
         #check if blutooth block size is compatible with device
         #4 rx channels 16 bytes each, first 6 bytes packet header, last 2 bytes part of checksum)
         if(btBlockSize > 16 * 4 - (6 + 2)): 
             raise ValueError("btBlockSize to large")
         
-        #start data sequence
-        print("data read start")
-        await self._enableRxChannelNotifyAndCallback()
-        self.rxFinishedFlag = False
-        startDataReadout    = bytearray.fromhex("0800000000100018")
-        await self._waitForRxOrRetry(startDataReadout)
-        if(self.rxPacketType != bytearray.fromhex("8000")):
-            raise ValueError("invlid response to data readout start")
+        await self._unlockEepromAndEnableCallback()
         
         #read out data
         eepromBytesData = bytearray()
@@ -143,13 +191,8 @@ class bluetoothTxRxHandler:
             startAddress    += nextSubblockSize
             bytesToRead     -= nextSubblockSize
           
-        #stop read sequence
-        self.rxFinishedFlag = False
-        stopDataReadout         = bytearray.fromhex("080f000000000007")
-        await self._waitForRxOrRetry(stopDataReadout)
-        if(self.rxPacketType != bytearray.fromhex("8f00")):
-            raise ValueError("invlid response to data readout end")
-        await self._disableRxChannelNotifyAndCallback()
+        await self._lockEepromAndDisableCallback()
+        
         return eepromBytesData
         
     async def writeNewPairingKey(self, newKeyByteArray):
@@ -189,7 +232,14 @@ async def parseUserRecords(btobj):
     user2Entries = deviceSpecific.user2Entries()
     
     await btobj.unlockWithPairingKey(examplePairingKey)
-    readData = await btobj.readContinuousEEPROMdata(startAddress, recordSize * (user1Entries + user2Entries))
+    
+    
+    
+    readData = await btobj.readContinuousEepromData(startAddress, recordSize * (user1Entries + user2Entries))
+    
+    #reset unread records counter
+    if(hasattr(deviceSpecific, "resetUnreadRecordsCount")):
+        await deviceSpecific.resetUnreadRecordsCount(btobj)
     
     #slice split for both users, then split each record
     user1ByteRecords = readData[:recordSize * user1Entries]
