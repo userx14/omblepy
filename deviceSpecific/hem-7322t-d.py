@@ -27,3 +27,6 @@ def recordToDict(recordBytes):
     second                 = bytearrayBitsToIntBigEndian(recordBytes, 58, 63)
     recordDict["datetime"] = datetime.datetime(year, month, day, hour, minute, second)
     return recordDict
+
+def newRecordsAddress():
+    return 0x0260
