@@ -9,7 +9,6 @@ import sys, os
 
 #global constants
 parentService_UUID        = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
-deviceUnlock_UUID         = "b305b680-aee7-11e1-a730-0002a5d5c51b"
 
 #global variables
 bleClient           = None
@@ -21,6 +20,7 @@ def convertByteArrayToHexString(array):
 
 
 class bluetoothTxRxHandler:
+    #BTLE Characteristic IDs
     deviceCommandChannel_UUID = "db5b55e0-aee7-11e1-965e-0002a5d5c51b"
     deviceDataRxChannelUUIDs = [
                                     "49123040-aee8-11e1-a74d-0002a5d5c51b",
@@ -29,9 +29,9 @@ class bluetoothTxRxHandler:
                                     "560f1420-aee8-11e1-8184-0002a5d5c51b"
                                 ]
     deviceDataRxChannelIntHandles = [0x360, 0x370, 0x380, 0x390]
+    deviceUnlock_UUID         = "b305b680-aee7-11e1-a730-0002a5d5c51b"
     
-    
-    def __init__(self):
+    def __init__(self, pairing = False):
         self.currentRxNotifyStateFlag   = False
         self.rxPacketType               = None
         self.rxEepromAddress            = None
@@ -102,14 +102,14 @@ class bluetoothTxRxHandler:
             if(retries > 5):
                 ValueError("Same transmission failed 5 times, abort")
     
-    async def _unlockEepromAndEnableCallback(self):
+    async def startTransmission(self):
         await self._enableRxChannelNotifyAndCallback()
         startDataReadout    = bytearray.fromhex("0800000000100018")
         await self._waitForRxOrRetry(startDataReadout)
         if(self.rxPacketType != bytearray.fromhex("8000")):
             raise ValueError("invalid response to data readout start")
-            
-    async def _lockEepromAndDisableCallback(self):
+                
+    async def endTransmissionAndPoweroff(self):
         stopDataReadout         = bytearray.fromhex("080f000000000007")
         await self._waitForRxOrRetry(stopDataReadout)
         if(self.rxPacketType != bytearray.fromhex("8f00")):
@@ -158,18 +158,12 @@ class bluetoothTxRxHandler:
     
     async def writeContinuousEepromData(self, startAddress, bytesArrayToWrite):
         print("data write start...")
-        
-        await self._unlockEepromAndEnableCallback()
-        
         while(len(bytesArrayToWrite) != 0):
             nextSubblockSize = min(len(bytesArrayToWrite), 0x08)
             print(f"write at {hex(startAddress)} size {hex(nextSubblockSize)}")
             await self._writeBlockEeprom(startAddress, bytesArrayToWrite[:nextSubblockSize])
             bytesArrayToWrite = bytesArrayToWrite[nextSubblockSize:]
             print(bytesArrayToWrite)
-        
-        await self._lockEepromAndDisableCallback()
-        
         return
     
     async def readContinuousEepromData(self, startAddress, bytesToRead, btBlockSize = 0x38):
@@ -179,9 +173,6 @@ class bluetoothTxRxHandler:
         #4 rx channels 16 bytes each, first 6 bytes packet header, last 2 bytes part of checksum)
         if(btBlockSize > 16 * 4 - (6 + 2)): 
             raise ValueError("btBlockSize to large")
-        
-        await self._unlockEepromAndEnableCallback()
-        
         #read out data
         eepromBytesData = bytearray()
         while(bytesToRead != 0):
@@ -190,25 +181,22 @@ class bluetoothTxRxHandler:
             eepromBytesData += await self._readBlockEeprom(startAddress, nextSubblockSize)
             startAddress    += nextSubblockSize
             bytesToRead     -= nextSubblockSize
-          
-        await self._lockEepromAndDisableCallback()
-        
         return eepromBytesData
         
-    async def writeNewPairingKey(self, newKeyByteArray):
+    async def writeNewPairingKey(self, newKeyByteArray = examplePairingKey):
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
         #enable key programming mode
-        await bleClient.write_gatt_char(deviceUnlock_UUID, b'\x02' + b'\x00'*16, response=True)
+        await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x02' + b'\x00'*16, response=True)
         await asyncio.sleep(0.5)
-        deviceResponse = await bleClient.read_gatt_char(deviceUnlock_UUID, use_cached = False)
+        deviceResponse = await bleClient.read_gatt_char(self.deviceUnlock_UUID, use_cached = False)
         if(deviceResponse != b'\x82' + b'\x00'*16):
             raise ValueError(f"Could not enter key programming mode. Has the device been started in pairing mode?")
         
         #programm new key
-        await bleClient.write_gatt_char(deviceUnlock_UUID, b'\x00' + newKeyByteArray, response=True)
+        await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x00' + newKeyByteArray, response=True)
         await asyncio.sleep(0.5)
-        deviceResponse = await bleClient.read_gatt_char(deviceUnlock_UUID, use_cached = False)
+        deviceResponse = await bleClient.read_gatt_char(self.deviceUnlock_UUID, use_cached = False)
         if(deviceResponse != b'\x80' + b'\x00'*16):
             raise ValueError(f"Failure to programm new key.")
             
@@ -216,10 +204,10 @@ class bluetoothTxRxHandler:
         print("From now on you can connect ommit the -p flag, even on other PCs with different Bluetooth-MAC-addresses.")
         return
         
-    async def unlockWithPairingKey(self, keyByteArray):
-        await bleClient.write_gatt_char(deviceUnlock_UUID, b'\x01' + keyByteArray, response=True)
+    async def unlockWithPairingKey(self, keyByteArray = examplePairingKey):
+        await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x01' + keyByteArray, response=True)
         await asyncio.sleep(0.5)
-        deviceResponse = await bleClient.read_gatt_char(deviceUnlock_UUID, use_cached = False)
+        deviceResponse = await bleClient.read_gatt_char(self.deviceUnlock_UUID, use_cached = False)
         if(deviceResponse !=  b'\x81' + b'\x00' * 16):
             raise ValueError(f"entered pairing key does not match stored one.")
         return
@@ -231,8 +219,8 @@ async def parseUserRecords(btobj):
     user1Entries = deviceSpecific.user1Entries()
     user2Entries = deviceSpecific.user2Entries()
     
-    await btobj.unlockWithPairingKey(examplePairingKey)
-    
+    await btobj.unlockWithPairingKey()
+    await btobj.startTransmission()
     
     
     readData = await btobj.readContinuousEepromData(startAddress, recordSize * (user1Entries + user2Entries))
@@ -240,6 +228,9 @@ async def parseUserRecords(btobj):
     #reset unread records counter
     if(hasattr(deviceSpecific, "resetUnreadRecordsCount")):
         await deviceSpecific.resetUnreadRecordsCount(btobj)
+    
+    await btobj.endTransmissionAndPoweroff()
+    
     
     #slice split for both users, then split each record
     user1ByteRecords = readData[:recordSize * user1Entries]
@@ -334,13 +325,9 @@ async def main():
                              or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")
         await asyncio.sleep(0.5)
         
-        bluetoothTxRxObj = bluetoothTxRxHandler()
-        
+        bluetoothTxRxObj = bluetoothTxRxHandler(args.pair)
         if(args.pair):
-            await bluetoothTxRxObj.writeNewPairingKey(examplePairingKey)
-            print("Plase now restart omronpy without the -p flag.")
-            await bleClient.disconnect()
-            exit(0)
+            await bluetoothTxRxObj.writeNewPairingKey()
         else:
             allRecs = await parseUserRecords(bluetoothTxRxObj)
             writeCsv(allRecs)

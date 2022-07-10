@@ -40,7 +40,7 @@ async def resetUnreadRecordsCount(btobj):
     unreadRecordsUser1 = bytearrayBitsToIntBigEndian(readRecordsInfoByteArray, 40, 47)
     _unclear           = bytearrayBitsToIntBigEndian(readRecordsInfoByteArray, 48, 55)
     unreadRecordsUser2 = bytearrayBitsToIntBigEndian(readRecordsInfoByteArray, 56, 63)
-    #special code for no new records
+    
     
     print(f"Current ring buffer slot user1: {currentSlotUser1}")
     print(f"Current ring buffer slot user2: {currentSlotUser2}")
@@ -48,6 +48,7 @@ async def resetUnreadRecordsCount(btobj):
     print(f"Unread records user1: {unreadRecordsUser2}")
     
     #reset entries unread records
+    #special code for no new records is 0x8000
     readRecordsInfoByteArray[4] = 0x80
     readRecordsInfoByteArray[5] = 0x00
     readRecordsInfoByteArray[6] = 0x80
