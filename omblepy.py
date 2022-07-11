@@ -190,14 +190,14 @@ class bluetoothTxRxHandler:
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x02' + b'\x00'*16, response=True)
         await asyncio.sleep(0.5)
         deviceResponse = await bleClient.read_gatt_char(self.deviceUnlock_UUID, use_cached = False)
-        if(deviceResponse != b'\x82' + b'\x00'*16):
+        if(deviceResponse[:2] != bytearray.fromhex("8200")):
             raise ValueError(f"Could not enter key programming mode. Has the device been started in pairing mode?")
         
         #programm new key
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x00' + newKeyByteArray, response=True)
         await asyncio.sleep(0.5)
         deviceResponse = await bleClient.read_gatt_char(self.deviceUnlock_UUID, use_cached = False)
-        if(deviceResponse != b'\x80' + b'\x00'*16):
+        if(deviceResponse[:2] != bytearray.fromhex("8000")):
             raise ValueError(f"Failure to programm new key.")
             
         print(f"Paired device successfully with new key {newKeyByteArray}.")
@@ -208,7 +208,7 @@ class bluetoothTxRxHandler:
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x01' + keyByteArray, response=True)
         await asyncio.sleep(0.5)
         deviceResponse = await bleClient.read_gatt_char(self.deviceUnlock_UUID, use_cached = False)
-        if(deviceResponse !=  b'\x81' + b'\x00' * 16):
+        if(deviceResponse[:2] !=  bytearray.fromhex("8100")):
             raise ValueError(f"entered pairing key does not match stored one.")
         return
 
