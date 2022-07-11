@@ -14,17 +14,17 @@ def user2Entries():
 
 def recordToDict(recordBytes):
     recordDict = dict()
-    minute                 = bytearrayBitsToIntBigEndian(recordBytes, 68, 73)
-    second                 = bytearrayBitsToIntBigEndian(recordBytes, 74, 79)
-    recordDict["mov"]      = bytearrayBitsToIntBigEndian(recordBytes, 80, 80)
-    recordDict["ihb"]      = bytearrayBitsToIntBigEndian(recordBytes, 81, 81)
-    month                  = bytearrayBitsToIntBigEndian(recordBytes, 82, 85)
-    day                    = bytearrayBitsToIntBigEndian(recordBytes, 86, 90)
-    hour                   = bytearrayBitsToIntBigEndian(recordBytes, 91, 95)
-    year                   = bytearrayBitsToIntBigEndian(recordBytes, 98, 103) + 2000
-    recordDict["bpm"]      = bytearrayBitsToIntBigEndian(recordBytes, 104, 111)
-    recordDict["dia"]      = bytearrayBitsToIntBigEndian(recordBytes, 112, 119)
-    recordDict["sys"]      = bytearrayBitsToIntBigEndian(recordBytes, 120,  127) + 25
+    minute                 = bytearrayBitsToIntLittleEndian(recordBytes, 68, 73)
+    second                 = bytearrayBitsToIntLittleEndian(recordBytes, 74, 79)
+    recordDict["mov"]      = bytearrayBitsToIntLittleEndian(recordBytes, 80, 80)
+    recordDict["ihb"]      = bytearrayBitsToIntLittleEndian(recordBytes, 81, 81)
+    month                  = bytearrayBitsToIntLittleEndian(recordBytes, 82, 85)
+    day                    = bytearrayBitsToIntLittleEndian(recordBytes, 86, 90)
+    hour                   = bytearrayBitsToIntLittleEndian(recordBytes, 91, 95)
+    year                   = bytearrayBitsToIntLittleEndian(recordBytes, 98, 103) + 2000
+    recordDict["bpm"]      = bytearrayBitsToIntLittleEndian(recordBytes, 104, 111)
+    recordDict["dia"]      = bytearrayBitsToIntLittleEndian(recordBytes, 112, 119)
+    recordDict["sys"]      = bytearrayBitsToIntLittleEndian(recordBytes, 120,  127) + 25
     
     recordDict["datetime"] = datetime.datetime(year, month, day, hour, minute, second)
     return recordDict
