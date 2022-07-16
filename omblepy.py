@@ -163,6 +163,7 @@ class bluetoothTxRxHandler:
             print(f"write at {hex(startAddress)} size {hex(nextSubblockSize)}")
             await self._writeBlockEeprom(startAddress, bytesArrayToWrite[:nextSubblockSize])
             bytesArrayToWrite = bytesArrayToWrite[nextSubblockSize:]
+            startAddress += nextSubblockSize
             print(bytesArrayToWrite)
         return
     
