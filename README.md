@@ -1,6 +1,6 @@
 # omblepy
 Cli tool to read records from Omron Bluetooth-LE measurement instruments
-
+This version is built to test compatibility with HEM-7361T-D and only works on linux, because of the dependency on bluez.
 
 ## Initial setup
 First install python in version 3.8 or preferably a more recent one. <br>
@@ -12,7 +12,7 @@ apt install python3.10
 Install the two required modules 'bleak' for bluetooth communication and 'terminaltables' for command line output formatting. <br>
 ```
 pip3 install terminaltables
-pip3 install bleak
+pip3 install bluezero
 ```
 
 ## Usage examples
@@ -21,20 +21,25 @@ The tool provides a build-in help, which can be accesses like so:
 python3 ./omblepy.py -h
 ```
 ### Pairing
-Start the omron instrument in pairing mode, then execute the following to write the custom pairing key:
+If the omron is first used with this tool it is neccesary to write a new unlock key like so:
 ```
-python3 ./omblepy.py -p
+python3 ./omblepy.py -p -d HEM-7361T-D
 ```
 This only needs to be done once, even connecting using different PCs with different Bluetooth Mac Addresses should work fine from now on.
+
 ### Normal connection
 Start the omron instrument in it's normal bluetooth connection mode, execute the commands below to export all stored data records into csv files in the current directory.
 #### With selection dialog for device
 ```
-python3 ./omblepy.py -d HEM-7322T-D
+python3 ./omblepy.py -d HEM-7361T-D
 ```
 #### With predefined bluetooth mac
 ```
-python3 ./omblepy.py -d HEM-7322T-D -m D3:07:19:08:27:00
+python3 ./omblepy.py -d HEM-7361T-D -m D3:07:19:08:27:00
+```
+#### Read only new records and reset unread records counter
+```
+python3 ./omblepy.py -d HEM-7361T-D -n
 ```
 
 ## Adding Support for new devices
