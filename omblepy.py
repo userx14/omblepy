@@ -218,32 +218,56 @@ class bluetoothTxRxHandler:
             startAddress    += nextSubblockSize
             bytesToRead     -= nextSubblockSize
         return eepromBytesData
+    def _callbackForKeyRW(self, iface, changed_props, invalidated_props):
+        notify = changed_props.get("Notifying", None)
+        value  = changed_props.get("Value", None)
+        if(notify):
+            print("got notify change")
+            self.bleCentralInstance.quit()
+            return
+        if not value:
+            return
+        rxBytes = bytes(value)
+        self.rxDataBytes = rxBytes
+        self.bleCentralInstance.quit()
         
     def writeNewUnlockKey(self, newKeyByteArray = examplePairingKey):
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
         #enable key programming mode
+        self.unlockChannel.start_notify()
+        self.unlockChannel.add_characteristic_cb(self._callbackForKeyRW)
+        self.bleCentralInstance.run()
         self.unlockChannel.write_value([0x02])
-        deviceResponse = bytes(self.unlockChannel.read_raw_value())
+        self.bleCentralInstance.run()
+        deviceResponse = self.rxDataBytes
         if(deviceResponse[:2] != bytearray.fromhex("8200")):
             raise ValueError(f"Could not enter key programming mode. Has the device been started in pairing mode?")
         
         #programm new key
         self.unlockChannel.write_value([0x00] + list(newKeyByteArray))
-        deviceResponse = bytes(self.unlockChannel.read_raw_value())
+        self.bleCentralInstance.run()
+        deviceResponse = self.rxDataBytes
         if(deviceResponse[:2] != bytearray.fromhex("8000")):
             raise ValueError(f"Failure to programm new key.")
-        
+        self.unlockChannel.stop_notify()
+        self.unlockChannel.add_characteristic_cb(None)
         print(f"Paired device successfully with new key {newKeyByteArray}.")
         print("From now on you can connect ommit the -p flag, even on other PCs with different Bluetooth-MAC-addresses.")
         return
         
     def unlockWithUnlockKey(self, keyByteArray = examplePairingKey):
+        self.unlockChannel.start_notify()
+        self.unlockChannel.add_characteristic_cb(self._callbackForKeyRW)
+        self.bleCentralInstance.run()
         self.unlockChannel.write_value([0x01] + list(keyByteArray))
-        deviceResponse = bytes(self.unlockChannel.read_raw_value())
+        self.bleCentralInstance.run()
+        deviceResponse = self.rxDataBytes
         if(deviceResponse[:2] !=  bytearray.fromhex("8100")):
             raise ValueError(f"entered pairing key does not match stored one. got {deviceResponse}")
         print("unlocked")
+        self.unlockChannel.stop_notify()
+        self.unlockChannel.add_characteristic_cb(None)
         return
 
 
