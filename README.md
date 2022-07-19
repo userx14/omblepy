@@ -41,6 +41,16 @@ python3 ./omblepy.py -d HEM-7322T-D -m D3:07:19:08:27:00
 The device specific configuration is stored in a per device file. 
 Feel free to contribute to bring support to more devices.
 
+## Troubleshooting
+- remove the pairing with the device using your os bluetooth dialog
+### Linux specific
+- restart the bluetooth stack `sudo systemctl restart bluetooth`
+- delete the bluetooth adapter cache with `sudo rm -r /var/lib/bluetooth/$yourBtCardMacAddress`
+- open a second terminal and use `bluetoothctl` to confirm pairing dialogs by typing `yes` when promped, 
+  this is most important when you have two bluetooth adapters, since some graphical interfaces will not show the pairing dialog in this case
+- try distributions with other versions of bluez, for me versions around bluez 5.55 worked best
+
+
 ## Documentation 
 
 ### Packet format for memory read
