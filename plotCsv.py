@@ -23,7 +23,7 @@ sys1 = []
 with open(inputpath, mode='r', newline='', encoding='utf-8') as infile:
     reader = csv.DictReader(infile)
     for record in reader:
-        date1.append(datetime.fromisoformat(record["datetime"]))
+        date1.append(datetime.strptime(record["datetime"], "%Y-%m-%d %H:%M:%S"))
         sys1.append(float(record["sys"]))
         dia1.append(float(record["dia"]))
 
