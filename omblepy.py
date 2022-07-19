@@ -184,33 +184,47 @@ class bluetoothTxRxHandler:
             bytesToRead     -= nextSubblockSize
         return eepromBytesData
         
+    def _callbackForUnlockChannel(self, UUID_or_intHandle, rxBytes):
+        self.rxDataBytes = rxBytes
+        self.rxFinishedFlag = True
+        return
+    
     async def writeNewPairingKey(self, newKeyByteArray = examplePairingKey):
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
         #enable key programming mode
+        await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
+        self.rxFinishedFlag = False
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x02' + b'\x00'*16, response=True)
-        await asyncio.sleep(0.5)
-        deviceResponse = await bleClient.read_gatt_char(self.deviceUnlock_UUID, use_cached = False)
+        while(self.rxFinishedFlag == False):
+            await asyncio.sleep(0.1)
+        deviceResponse = self.rxDataBytes
         if(deviceResponse[:2] != bytearray.fromhex("8200")):
-            raise ValueError(f"Could not enter key programming mode. Has the device been started in pairing mode?")
+            raise ValueError(f"Could not enter key programming mode. Has the device been started in pairing mode? {deviceResponse}")
         
         #programm new key
+        self.rxFinishedFlag = False
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x00' + newKeyByteArray, response=True)
         await asyncio.sleep(0.5)
-        deviceResponse = await bleClient.read_gatt_char(self.deviceUnlock_UUID, use_cached = False)
+        deviceResponse = self.rxDataBytes
         if(deviceResponse[:2] != bytearray.fromhex("8000")):
             raise ValueError(f"Failure to programm new key.")
-            
+        
+        await bleClient.stop_notify(self.deviceUnlock_UUID)
         print(f"Paired device successfully with new key {newKeyByteArray}.")
         print("From now on you can connect ommit the -p flag, even on other PCs with different Bluetooth-MAC-addresses.")
         return
         
     async def unlockWithPairingKey(self, keyByteArray = examplePairingKey):
+        await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
+        self.rxFinishedFlag = False
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x01' + keyByteArray, response=True)
-        await asyncio.sleep(0.5)
-        deviceResponse = await bleClient.read_gatt_char(self.deviceUnlock_UUID, use_cached = False)
+        while(self.rxFinishedFlag == False):
+            await asyncio.sleep(0.1)
+        deviceResponse = self.rxDataBytes
         if(deviceResponse[:2] !=  bytearray.fromhex("8100")):
             raise ValueError(f"entered pairing key does not match stored one.")
+        await bleClient.stop_notify(self.deviceUnlock_UUID)
         return
 
 
@@ -318,6 +332,7 @@ async def main():
         print(f"Attempt connecting to {bleAddr}.")
         await bleClient.connect()
         await asyncio.sleep(0.5)
+        await bleClient.pair(protection_level = 2)
         #verify that the device is an omron device by checking presence of certain bluetooth services
         services = await bleClient.get_services()
         if parentService_UUID not in [service.uuid for service in services]:
