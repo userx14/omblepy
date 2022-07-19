@@ -48,6 +48,7 @@ Feel free to contribute to bring support to more devices.
 - delete the bluetooth adapter cache with `sudo rm -r /var/lib/bluetooth/$yourBtCardMacAddress`
 - open a second terminal and use `bluetoothctl` to confirm pairing dialogs by typing `yes` when promped, 
   this is most important when you have two bluetooth adapters, since some graphical interfaces will not show the pairing dialog in this case
+- when you are on ubuntu, install blueman, since it seems to be designed with multiple adapters in mind.
 - try distributions with other versions of bluez, for me versions around bluez 5.55 worked best
 
 
