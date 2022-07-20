@@ -282,11 +282,18 @@ async def main():
     parser.add_argument('-n', "--newRecOnly", action="store_true",       help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     args = parser.parse_args()
     
+    #setup logging
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logging.basicConfig()
     if(args.loggerDebug):
-        logging.basicConfig(level = logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
     else:
-        logging.basicConfig(level = logging.INFO)
+        logger.setLevel(logging.INFO)
     
+    #import device specific module
     if(not args.pair and not args.device):
         raise ValueError("When not in pairing mode, please specify your device type name with -d or --device")
         return
@@ -300,7 +307,7 @@ async def main():
             raise ValueError("the device is no supported yet, you can help by contributing :)")
             return
     
-    
+    #select device mac address
     validMacRegex = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")  
     if(args.mac is not None):
         btmac = args.mac.strip("'").strip('\"') #strip quotes around arg
