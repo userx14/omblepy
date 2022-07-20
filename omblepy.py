@@ -63,7 +63,7 @@ class bluetoothTxRxHandler:
         rxChannelId = self.deviceDataRxChannelIntHandles.index(UUID_or_intHandle)
         self.rxRawChannelBuffer[rxChannelId] = rxBytes
         
-        logger.debug(f"rx ch {rxChannelId}\n{convertByteArrayToHexString(rxBytes)}")
+        logger.debug(f"rx ch{rxChannelId} < {convertByteArrayToHexString(rxBytes)}")
         if self.rxRawChannelBuffer[0]:                               #if there is data present in the first rx buffer
             packetSize       = self.rxRawChannelBuffer[0][0]
             requiredChannels = range((packetSize + 15) // 16)
@@ -82,7 +82,7 @@ class bluetoothTxRxHandler:
                 xorCrc ^= byte
             if(xorCrc):
                 raise ValueError(f"data corruption in rx\ncrc: {xorCrc}\ncombniedBuffer: {convertByteArrayToHexString(combinedRawRx)}")
-            
+                return
             #extract information
             self.rxPacketType       = combinedRawRx[1:3]
             self.rxEepromAddress    = combinedRawRx[3:5]
@@ -97,15 +97,15 @@ class bluetoothTxRxHandler:
         return
     
     async def _waitForRxOrRetry(self, command, timeoutS = 1.0):
-        logger.debug(f"Send Command {convertByteArrayToHexString(command)}")
         self.rxFinishedFlag = False
         retries = 0
         while True:
-            #commandCopy = command
+            commandCopy = command
             requiredTxChannels = range((len(command) + 15) // 16)
             for channelIdx in requiredTxChannels:
-                await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[channelIdx], command[:16])
-                command = command[16:]
+                logger.debug(f"tx ch{channelIdx} > {convertByteArrayToHexString(commandCopy[:16])}")
+                await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[channelIdx], commandCopy[:16])
+                commandCopy = commandCopy[16:]
             
             currentTimeout = timeoutS
             while(self.rxFinishedFlag == False):
@@ -133,6 +133,7 @@ class bluetoothTxRxHandler:
         await self._waitForRxOrRetry(stopDataReadout)
         if(self.rxPacketType != bytearray.fromhex("8f00")):
             raise ValueError("invlid response to data readout end")
+            return
         await self._disableRxChannelNotifyAndCallback()
     
     async def _writeBlockEeprom(self, address, dataByteArray):
@@ -287,7 +288,6 @@ async def main():
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    logging.basicConfig()
     if(args.loggerDebug):
         logger.setLevel(logging.DEBUG)
     else:
@@ -340,7 +340,6 @@ async def main():
             await bluetoothTxRxObj.writeNewUnlockKey()
         logger.info(f"requesting records")
         allRecs = await deviceSpecific.getNewRecords(bluetoothTxRxObj, UseAndResetUnreadCounter = args.newRecOnly)
-        logger.info(f"bluetooth com finished, parsing records")
         appendCsv(allRecs)
     finally:
         logger.info(f"Unpair and disconnect")
