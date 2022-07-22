@@ -173,9 +173,9 @@ class bluetoothTxRxHandler:
             raise ValueError("Invalid packet type in eeprom read")
         return self.rxDataBytes
     
-    async def writeContinuousEepromData(self, startAddress, bytesArrayToWrite):
+    async def writeContinuousEepromData(self, startAddress, bytesArrayToWrite, btBlockSize = 0x08):
         while(len(bytesArrayToWrite) != 0):
-            nextSubblockSize = min(len(bytesArrayToWrite), 0x08)
+            nextSubblockSize = min(len(bytesArrayToWrite), btBlockSize)
             logger.debug(f"write to {hex(startAddress)} size {hex(nextSubblockSize)}")
             await self._writeBlockEeprom(startAddress, bytesArrayToWrite[:nextSubblockSize])
             bytesArrayToWrite = bytesArrayToWrite[nextSubblockSize:]
