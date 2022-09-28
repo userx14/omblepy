@@ -16,14 +16,14 @@ pip3 install bleak
 ```
 
 ## Usage examples
-The tool provides a build-in help, which can be accesses like so:
+The tool provides a build-in help, which can be accessed like so:
 ```
 python3 ./omblepy.py -h
 ```
 ### Pairing
-Start the omron instrument in pairing mode, then execute the following to write the custom pairing key:
+When using the tool for the first time, you will need to write the custom pairing key with the -p flag while starting the omron instrument in the pairing mode (blinking P on display):
 ```
-python3 ./omblepy.py -p
+python3 ./omblepy.py -p -d HEM-7322T-D
 ```
 This only needs to be done once, even connecting using different PCs with different Bluetooth Mac Addresses should work fine from now on.
 ### Normal connection
@@ -32,7 +32,7 @@ Start the omron instrument in it's normal bluetooth connection mode, execute the
 ```
 python3 ./omblepy.py -d HEM-7322T-D
 ```
-#### With predefined bluetooth mac
+#### Without selection dialog and with predefined bluetooth mac
 ```
 python3 ./omblepy.py -d HEM-7322T-D -m D3:07:19:08:27:00
 ```
