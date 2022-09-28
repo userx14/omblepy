@@ -20,12 +20,18 @@ The tool provides a build-in help, which can be accessed like so:
 ```
 python3 ./omblepy.py -h
 ```
-### Pairing
+### Pairing and data readout
 When using the tool for the first time, you will need to write the custom pairing key with the -p flag while starting the omron instrument in the pairing mode (blinking P on display):
 ```
 python3 ./omblepy.py -p -d HEM-7322T-D
 ```
-This only needs to be done once, even connecting using different PCs with different Bluetooth Mac Addresses should work fine from now on.
+This only needs to be done once, using omblepy and connecting using different PCs with different Bluetooth Mac Addresses should work fine from now on.
+#### For UBPM
+If you preform this pairing for <a href="https://codeberg.org/LazyT/ubpm/">ubpm</a>, just use one of the existing devices, even if your device is different.
+As far as I know the pairing process is the same for all omron devices.
+After the pairing the programm will try to read the records in the device specific format and crash, but if the device brifely showed a square instead of the pairing icon the pairing was still successful.
+The device will remember the last mac address of the pairing procedure and UBPM can be used with this specific mac address from nowon.
+
 ### Normal connection
 Start the omron instrument in it's normal bluetooth connection mode, execute the commands below to export all stored data records into csv files in the current directory.
 #### With selection dialog for device
