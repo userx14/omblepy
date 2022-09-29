@@ -59,8 +59,8 @@ class bluetoothTxRxHandler:
                 await bleClient.stop_notify(rxChannelUUID)
             self.currentRxNotifyStateFlag = False
                 
-    def _callbackForRxChannels(self, UUID_or_intHandle, rxBytes):
-        rxChannelId = self.deviceDataRxChannelIntHandles.index(UUID_or_intHandle)
+    def _callbackForRxChannels(self, BleakGATTChar, rxBytes):
+        rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar.handle)
         self.rxRawChannelBuffer[rxChannelId] = rxBytes
         
         logger.debug(f"rx ch{rxChannelId} < {convertByteArrayToHexString(rxBytes)}")
@@ -329,8 +329,7 @@ async def main():
         await asyncio.sleep(0.5)
         await bleClient.pair(protection_level = 2)
         #verify that the device is an omron device by checking presence of certain bluetooth services
-        services = await bleClient.get_services()
-        if parentService_UUID not in [service.uuid for service in services]:
+        if parentService_UUID not in [service.uuid for service in bleClient.services]:
             raise OSError("""Some required bluetooth attributes not found on this ble device. 
                              This means that either, you connected to a wrong device, 
                              or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")

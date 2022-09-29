@@ -10,10 +10,29 @@ user2Entries = 100
 
 transmissionBlockSize = 0x38
 
-unreadRecordsReadAddress  = 0x0260
-unreadRecordsReadSize     = 0x08
-unreadRecordsWriteAddress = 0x0286
+settingsReadAddress     = 0x0260
+settingsWriteAddress    = 0x0286
 
+unreadRecordsOffset     = 0x00
+unreadRecordsSize       = 0x08
+timeSyncOffset          = 0x16
+timeSyncSize            = 0x06
+
+
+async def syncTimeWithSystemTime(btobj):
+    #read currently set time of device
+    settingsDataByteArray = await btobj.readContinuousEepromData(settingsReadAddress, 0x26)
+    readTimeSyncDataByteArray = settingsDataByteArray[timeSyncOffset:timeSyncOffset+timeSyncSize]
+    month, year, hour, day, second, minute = [int(byte) for byte in readTimeSyncDataByteArray] #looks so messy because of 16 bit endianess
+    print(f"device is set to date: {datetime.datetime(year + 2000, month, day, hour, minute, second)}")
+    
+    #write current system time to device, this sadly does not work yet, not sure why...
+    currentTime = datetime.datetime.now()
+    newDataByteArray = bytes([currentTime.month, currentTime.year - 2000, currentTime.hour, currentTime.day, currentTime.second, currentTime.minute])
+    settingsDataByteArray = settingsDataByteArray[:timeSyncOffset] + newDataByteArray + settingsDataByteArray[timeSyncOffset + timeSyncSize:]
+    await btobj.writeContinuousEepromData(settingsWriteAddress, settingsDataByteArray)
+    print(f"written new date {currentTime} to device")
+    
 async def getAllRecordReadCommands(btobj):
     u1Reads = []
     firstRead = dict()
@@ -52,7 +71,7 @@ async def getNewRecordReadCommands(btobj):
             firstRead["size"]    = recordSize * unreadRecords
             userReadQueue.append(firstRead)
         return userReadQueue  
-    readRecordsInfoByteArray = await btobj.readContinuousEepromData(unreadRecordsReadAddress, unreadRecordsReadSize)
+    readRecordsInfoByteArray = await btobj.readContinuousEepromData(settingsReadAddress + unreadRecordsOffset, unreadRecordsSize)
     _unclear             = int(readRecordsInfoByteArray[0])
     lastWrittenSlotUser1 = int(readRecordsInfoByteArray[1])
     _unclear             = int(readRecordsInfoByteArray[2])
@@ -77,6 +96,8 @@ async def getNewRecords(btobj, UseAndResetUnreadCounter):
     await btobj.unlockWithUnlockKey()
     await btobj.startTransmission()
     
+    #await syncTimeWithSystemTime(btobj)
+    
     if(UseAndResetUnreadCounter):
         user1ReadCom, user2ReadCom = await getNewRecordReadCommands(btobj)
     else:
@@ -98,12 +119,12 @@ async def getNewRecords(btobj, UseAndResetUnreadCounter):
     if(UseAndResetUnreadCounter):
         #reset entries unread records
         #special code for no new records is 0x8000
-        readRecordsInfoByteArray = await btobj.readContinuousEepromData(unreadRecordsReadAddress, unreadRecordsReadSize)
+        readRecordsInfoByteArray = await btobj.readContinuousEepromData(settingsReadAddress + unreadRecordsOffset, unreadRecordsSize)
         readRecordsInfoByteArray[4] = 0x80
         readRecordsInfoByteArray[5] = 0x00
         readRecordsInfoByteArray[6] = 0x80
         readRecordsInfoByteArray[7] = 0x00
-        await btobj.writeContinuousEepromData(unreadRecordsWriteAddress, readRecordsInfoByteArray[:8], 0x08)
+        await btobj.writeContinuousEepromData(settingsWriteAddress + unreadRecordsOffset, readRecordsInfoByteArray[:8], 0x08)
     
     #data transmission complete
     await btobj.endTransmission()
