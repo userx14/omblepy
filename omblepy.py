@@ -90,7 +90,10 @@ class bluetoothTxRxHandler:
             if(expectedNumDataBytes > (len(combinedRawRx) - 8)):
                 self.rxDataBytes    = bytes(b'\xff') * expectedNumDataBytes
             else:
-                self.rxDataBytes    = combinedRawRx[6: 6 + expectedNumDataBytes]
+                if(self.rxPacketType) == bytearray.fromhex("8f00"): #need special case for end of transmission packet, otherwise transmission error code is not accessible
+                    self.rxDataBytes = combinedRawRx[6:7]
+                else:
+                    self.rxDataBytes    = combinedRawRx[6: 6 + expectedNumDataBytes]
             self.rxRawChannelBuffer = [None] * 4 #clear channel buffers
             self.rxFinishedFlag     = True
             return
@@ -133,6 +136,9 @@ class bluetoothTxRxHandler:
         await self._waitForRxOrRetry(stopDataReadout)
         if(self.rxPacketType != bytearray.fromhex("8f00")):
             raise ValueError("invlid response to data readout end")
+            return
+        if(self.rxDataBytes[0]):
+            raise ValueError(f"Device reported error status code {self.rxDataBytes[0]} while sending endTransmission command.")
             return
         await self._disableRxChannelNotifyAndCallback()
     
@@ -276,11 +282,12 @@ async def main():
     global bleClient
     global deviceSpecific    
     parser = argparse.ArgumentParser(description="python tool to read the records of omron blood pressure instruments")
-    parser.add_argument('-d', "--device", required="true",   type=ascii, help="Device name (e.g. HEM-7322T-D).")
-    parser.add_argument("--loggerDebug", action="store_true", help="Enable verbose logger output")
-    parser.add_argument("-p", "--pair", action="store_true",             help="Programm the pairing key into the device. Needs to be done only once.")
-    parser.add_argument("-m", "--mac",                       type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6). If not specified, will scan for devices and display a selection dialog.")
-    parser.add_argument('-n', "--newRecOnly", action="store_true",       help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
+    parser.add_argument('-d', "--device",     required="true", type=ascii,  help="Device name (e.g. HEM-7322T-D).")
+    parser.add_argument("--loggerDebug",      action="store_true",          help="Enable verbose logger output")
+    parser.add_argument("-p", "--pair",       action="store_true",          help="Programm the pairing key into the device. Needs to be done only once.")
+    parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6). If not specified, will scan for devices and display a selection dialog.")
+    parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
+    parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
     args = parser.parse_args()
     
     #setup logging
@@ -338,7 +345,7 @@ async def main():
         if(args.pair):
             await bluetoothTxRxObj.writeNewUnlockKey()
         logger.info(f"requesting records")
-        allRecs = await deviceSpecific.getNewRecords(bluetoothTxRxObj, UseAndResetUnreadCounter = args.newRecOnly)
+        allRecs = await deviceSpecific.getNewRecords(bluetoothTxRxObj, UseAndResetUnreadCounter = args.newRecOnly, timeSyncWithSystemTime = args.timeSync)
         appendCsv(allRecs)
     finally:
         logger.info(f"Unpair and disconnect")

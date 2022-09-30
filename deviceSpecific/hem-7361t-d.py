@@ -10,9 +10,17 @@ user2Entries = 100
 
 transmissionBlockSize = 0x10
 
-unreadRecordsReadAddress  = 0x0010
-unreadRecordsReadSize     = 0x10
-unreadRecordsWriteAddress = 0x0054
+settingsReadAddress     = 0x0010
+settingsWriteAddress    = 0x0054
+
+unreadRecordsOffset     = 0x00
+unreadRecordsSize       = 0x10
+#timeSyncOffset          = ?
+#timeSyncSize            = ?
+
+async def syncTimeWithSystemTime(btobj):
+    print("Sorry, time sync is not yet tested on HEM7361t. Please open an issue if you need this or can test this.")
+    
 
 async def getAllRecordReadCommands(btobj):
     u1Reads = []
@@ -52,7 +60,7 @@ async def getNewRecordReadCommands(btobj):
             firstRead["size"]    = recordSize * unreadRecords
             userReadQueue.append(firstRead)
         return userReadQueue  
-    readRecordsInfoByteArray = await btobj.readContinuousEepromData(unreadRecordsReadAddress, unreadRecordsReadSize)
+    readRecordsInfoByteArray = await btobj.readContinuousEepromData(settingsReadAddress + unreadRecordsOffset, unreadRecordsSize)
     lastWrittenSlotUser1 = int(readRecordsInfoByteArray[0]) #0-99, when device is initialized, slot 0 is the first one used
     _unclear             = int(readRecordsInfoByteArray[1])
     lastWrittenSlotUser2 = int(readRecordsInfoByteArray[2])
@@ -73,9 +81,12 @@ async def getNewRecordReadCommands(btobj):
     return u1Reads, u2Reads
     
     
-async def getNewRecords(btobj, UseAndResetUnreadCounter):
+async def getNewRecords(btobj, UseAndResetUnreadCounter, timeSyncWithSystemTime):
     await btobj.unlockWithUnlockKey()
     await btobj.startTransmission()
+    
+    if(timeSyncWithSystemTime):
+        await syncTimeWithSystemTime(btobj)
     
     if(UseAndResetUnreadCounter):
         user1ReadCom, user2ReadCom = await getNewRecordReadCommands(btobj)
@@ -98,12 +109,12 @@ async def getNewRecords(btobj, UseAndResetUnreadCounter):
     if(UseAndResetUnreadCounter):
         #reset entries unread records
         #special code for no new records is 0x8000
-        readRecordsInfoByteArray = await btobj.readContinuousEepromData(unreadRecordsReadAddress, unreadRecordsReadSize)
+        readRecordsInfoByteArray = await btobj.readContinuousEepromData(settingsReadAddress + unreadRecordsOffset, unreadRecordsSize)
         readRecordsInfoByteArray[4] = 0x00
         readRecordsInfoByteArray[5] = 0x80
         readRecordsInfoByteArray[6] = 0x00
         readRecordsInfoByteArray[7] = 0x80
-        await btobj.writeContinuousEepromData(unreadRecordsWriteAddress, readRecordsInfoByteArray[:8], 0x08)
+        await btobj.writeContinuousEepromData(settingsWriteAddress + unreadRecordsOffset, readRecordsInfoByteArray[:8], 0x08)
     
     #data transmission complete
     await btobj.endTransmission()
