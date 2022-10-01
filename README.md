@@ -2,74 +2,84 @@
 Cli tool to read records from Omron Bluetooth-LE measurement instruments
 
 
-## Initial setup
-First install python in version 3.8 or preferably a more recent one. <br>
-Use the official installer on windows or on linux use:<br>
+## Windows setup
+First install latest python 3.x release.
+Use the <a href="https://www.python.org/downloads/">official installer</a> and enable the "add to path option" in the installer. <br>
+Then install the required libraries by opening a console window and executing the two commands:
+| command  | library name | tested with library version |module use |
+| -- | -- | -- | -- |
+| `pip install bleak` | <a href="https://pypi.org/project/bleak/">bleak</a> | v0.18.1 | bluetooth-le communication |
+| `pip install terminaltables` | <a href="https://pypi.org/project/terminaltables/">terminaltables</a> | v3.1.1 | formated command line output table for scanned devices |
+
+## Linux setup
+Install python ( >= version 3.8) and the two required libraries:
 ```
 apt install python3.10
-```
-
-Install the two required modules 'bleak' for bluetooth communication and 'terminaltables' for command line output formatting. <br>
-```
-pip3 install terminaltables
 pip3 install bleak
+pip3 install terminaltables
 ```
 
-## Usage examples
-The tool provides a build-in help, which can be accessed like so:
+## Usage
+For the first time pairing process you need to use the -p flag and enable pairing mode by holding the bluetooth button until you see the blinking -P- in the display:
 ```
-python3 ./omblepy.py -h
+python3 ./omblepy.py -p -d HEM-7322T-D 
 ```
-### Pairing and data readout
-When using the tool for the first time, you will need to write the custom pairing key with the -p flag while starting the omron instrument in the pairing mode (blinking P on display):
-```
-python3 ./omblepy.py -p -d HEM-7322T-D
-```
-This only needs to be done once, using omblepy and connecting using different PCs with different Bluetooth Mac Addresses should work fine from now on.
-#### For UBPM
-If you preform this pairing for <a href="https://codeberg.org/LazyT/ubpm/">ubpm</a>, just use one of the existing devices, even if your device is different.
-As far as I know the pairing process is the same for all omron devices.
-After the pairing the programm will try to read the records in the device specific format and crash, but if the device brifely showed a square instead of the pairing icon the pairing was still successful.
-The device will remember the last mac address of the pairing procedure and UBPM can be used with this specific mac address from nowon.
-
-### Normal connection
-Start the omron instrument in it's normal bluetooth connection mode, execute the commands below to export all stored data records into csv files in the current directory.
-#### With selection dialog for device
+After the first connection the -p flag can be omitted, even when executing omblepy on a different device:
 ```
 python3 ./omblepy.py -d HEM-7322T-D
 ```
-#### Without selection dialog and with predefined bluetooth mac
-```
-python3 ./omblepy.py -d HEM-7322T-D -m D3:07:19:08:27:00
-```
+### Pairing for UBPM
+If you preform this pairing for <a href="https://codeberg.org/LazyT/ubpm/">ubpm</a>, just use one of the supported devices (e.g. `-d HEM-7322t-d`), even if your device model is different. As far as I know the pairing process is simmilar for all omron devices. If you use an unsupported device it is expected that the pairing will work and that the -P- on the display of the omron device will change to a small square. But the tool will crash futher in the readout, because the data format / readout commands for the stored records are different. Nevertheless your omron device is now bound to the mac address of your pc and ubpm should work without mac address spoofing. <br>
+If you see the message "Could not enter key programming mode." or "Failure to programm new key." the pairing procedure did NOT work. Please see the troubleshooting section and if the problem persists please open an issue. <br>
+Success is indicated by the message "Paired device successfully with new key".
 
-## Adding Support for new devices
-The device specific configuration is stored in a per device file. 
-Feel free to contribute to bring support to more devices.
+### Flags table
+| flag  | alternative long flag  | always required | required on first connection | description | usage example | 
+| ----- | ----- | ----- | ----- | ----- | ----- |
+| `-h`  | `--help` | - | - | display help for all possible flags, similar to this table | `python3 ./omblepy.py -h` |
+| `-d`  | `--device` |✔️ | ✔️ | select which device libary will be loaded | `python3 ./omblepy.py -d HEM-7322t-d` |
+| `-p`  | `--pair` | ❌ | ✔️ | use to write pairing key on first connection with this pc | `python3 ./omblepy.py -d HEM-7322t-d -p` |
+| `-m`  | `--mac` |❌ | ❌ | select omron devices mac and skip bluetooth scan and device selection dialog | `python3 ./omblepy.py -d HEM-7322t-d -m 11:22:33:44:55:66` |
+| `-n`  | `--newRecOnly` | ❌ | ❌ | instead of downloading all records, check and update the "new records couter" and only transfer new records | `python3 ./omblepy.py -d HEM-7322t-d -n` |
+| `-t`  | `--timeSync` | ❌ | ❌ | synchronize omron internal clock with system time | `python3 ./omblepy.py -d HEM-7322t-d -t` |
+|  |`--loggerDebug`  | ❌ | ❌ | displays every ingoing and outgoing data for debugging purposes | `python3 ./omblepy.py -d HEM-7322t-d --loggerDebug` |
+
+## omron device support matrix
+| device model |typical name |  pairing | basic data readout | new record counter | time sync | contributors / testers / help by | 
+| ----- | ----- | ----- | ----- | ----- | ----- | ----- |
+| [HEM-7322T](deviceSpecific/hem-7322t-d.py) | M700 Intelli IT | ✔️ | ✔️ | ✔️ | ✔️ | userx14 |
+| [HEM-7361T](deviceSpecific/hem-7361t-d.py)  | M500 Intelli IT | ✔️ | ✔️ | ✔️ | ❓ | LazyT, userx14 |
+| HEM-7600T | Omron Evolv | ✔️ | ❌ | ❌ | ❌ |  |
+
+✔️=tested working, ❓=not tested , ❌=not supported yet <br>
+Please open an issue if you can test a feature or an currently unsupported device.
 
 ## Troubleshooting
-- remove the pairing with the device using your os bluetooth dialog
-### Linux specific
-- restart the bluetooth stack `sudo systemctl restart bluetooth`
-- delete the bluetooth adapter cache with `sudo rm -r /var/lib/bluetooth/$yourBtCardMacAddress`
-- open a second terminal and use `bluetoothctl` to confirm pairing dialogs by typing `yes` when promped, 
-  this is most important when you have two bluetooth adapters, since some graphical interfaces will not show the pairing dialog in this case
-- when you are on ubuntu, install blueman, since it seems to be designed with multiple adapters in mind.
-- try distributions with other versions of bluez, for me versions around bluez 5.55 worked best
+- Remove the pairing with the omron device using your os bluetooth dialog.
+- Try a different pc / os if the pairing does not work.
+  - On the devices I used to test win10 did always work, while ubuntu didn't work on some versions.
+- If the pairing works and there is an error in the readout use the `--loggerDebug` flag and please open an issue.
+- Windows specific
+  - Do not use the CSR harmony stack (CSR 8510 based usb dongles), it is incompatible.
+- Linux specific
+  - Preferably test on a device with only one bluetooth adapter connected.
+  - Restart the bluetooth stack `sudo systemctl restart bluetooth`.
+  - Delete the bluetooth adapter cache with `sudo rm -r /var/lib/bluetooth/$yourBtCardMacAddress`.
+  - If you have two bluetooth adapters in your system, open a second terminal alongside omblepy and use `bluetoothctl` to confirm pairing dialogs by typing `yes` when promped, some graphical interfaces will not show the pairing dialog for the second adapter.
+  - When you are on ubuntu, install blueman, since it seems to be designed with multiple adapters in mind.
+  - Try other versions of bluez, for me versions around bluez 5.55 worked best.
 
 
 ## Documentation 
 
-### Packet format for memory read
-
-Example message sent to request data read from specific address:
-
+### Packet format
+Example message sent to request a read of 0x26 bytes starting from address 0x0260:
 messagelength | command type      | start address | readsize | padding     | crc with xor
 ---           | ---               | ---           | ---      | ---         | ---
 10            | 80 00             | 02 60         | 26       | 00          | 4d
 in bytes      | read from address | in bytes      | in bytes | 1byte zero  | all bytes xored = zero
 
-## Thanks / Related Projects
-A huge thank you goes to lazyT and his UBPM project, see:
-https://codeberg.org/LazyT/ubpm
+
+## Related Projects
+A huge thank you goes to LazyT and his <a href=https://codeberg.org/LazyT/ubpm>UBPM project</a>
 which provided extremely usefull insight how the reception with multiple bluetooth channels works.
