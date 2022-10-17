@@ -16,7 +16,7 @@ parentService_UUID        = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
 bleClient           = None
 examplePairingKey   = bytearray.fromhex("deadbeaf12341234deadbeaf12341234") #arbitrary choise
 deviceSpecific      = None                            #imported module for each device
-logger              = logging.getLogger("omblepy-logger")
+logger              = logging.getLogger("omblepy")
 
 def convertByteArrayToHexString(array):
     return (bytes(array).hex())
@@ -186,7 +186,6 @@ class bluetoothTxRxHandler:
             await self._writeBlockEeprom(startAddress, bytesArrayToWrite[:nextSubblockSize])
             bytesArrayToWrite = bytesArrayToWrite[nextSubblockSize:]
             startAddress += nextSubblockSize
-            print(bytesArrayToWrite)
         return
     
     async def readContinuousEepromData(self, startAddress, bytesToRead, btBlockSize = 0x10):
@@ -228,8 +227,8 @@ class bluetoothTxRxHandler:
             raise ValueError(f"Failure to programm new key. Response: {deviceResponse}")
             return
         await bleClient.stop_notify(self.deviceUnlock_UUID)
-        print(f"Paired device successfully with new key {newKeyByteArray}.")
-        print("From now on you can connect ommit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
+        logger.info(f"Paired device successfully with new key {newKeyByteArray}.")
+        logger.info("From now on you can connect ommit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
         return
         
     async def unlockWithUnlockKey(self, keyByteArray = examplePairingKey):
@@ -247,7 +246,7 @@ class bluetoothTxRxHandler:
 
 
 def appendCsv(allRecords):
-    for userIdx in range(2):
+    for userIdx in range(len(allRecords)):
         oldCsvFile = pathlib.Path("user{userIdx+1}.csv")
         if(oldCsvFile.is_file()):
             with open(f"user{userIdx+1}.csv", mode='r', newline='', encoding='utf-8') as infile:
@@ -331,7 +330,7 @@ async def main():
     
     bleClient = bleak.BleakClient(bleAddr)
     try:
-        print(f"Attempt connecting to {bleAddr}.")
+        logger.info(f"Attempt connecting to {bleAddr}.")
         await bleClient.connect()
         await asyncio.sleep(0.5)
         await bleClient.pair(protection_level = 2)
@@ -344,11 +343,13 @@ async def main():
         bluetoothTxRxObj = bluetoothTxRxHandler()
         if(args.pair):
             await bluetoothTxRxObj.writeNewUnlockKey()
-        logger.info(f"requesting records")
-        allRecs = await deviceSpecific.getNewRecords(bluetoothTxRxObj, UseAndResetUnreadCounter = args.newRecOnly, timeSyncWithSystemTime = args.timeSync)
+        logger.info("communication started")
+        devSpecificDriver = deviceSpecific.deviceSpecificDriver()
+        allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync)
+        logger.info("communication finished")
         appendCsv(allRecs)
     finally:
-        logger.info(f"Unpair and disconnect")
+        logger.info("unpair and disconnect")
         await bleClient.unpair()
         await bleClient.disconnect()
 
