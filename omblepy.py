@@ -60,7 +60,10 @@ class bluetoothTxRxHandler:
             self.currentRxNotifyStateFlag = False
                 
     def _callbackForRxChannels(self, BleakGATTChar, rxBytes):
-        rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar.handle)
+        if type(BleakGATTChar) is int:
+            rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar)
+        else:
+            rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar.handle)
         self.rxRawChannelBuffer[rxChannelId] = rxBytes
         
         logger.debug(f"rx ch{rxChannelId} < {convertByteArrayToHexString(rxBytes)}")
