@@ -41,7 +41,10 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
         timeSyncSettingsCopy = self.cachedSettingsBytes[self.settingsTimeSyncBytesSlice]
         #read current time from cached settings bytes
         month, year, hour, day, second, minute = [int(byte) for byte in timeSyncSettingsCopy[2:8]]
-        logger.info(f"device is set to date: {datetime.datetime(year + 2000, month, day, hour, minute, second).strftime('%Y-%m-%d %H:%M:%S')}")
+        try:
+            logger.info(f"device is set to date: {datetime.datetime(year + 2000, month, day, hour, minute, second).strftime('%Y-%m-%d %H:%M:%S')}")
+        except:
+            logger.warning(f"device is set to an invalid date")
 
         #write the current time into the cached settings which will be written later
         currentTime = datetime.datetime.now()
