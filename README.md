@@ -49,7 +49,7 @@ Success is indicated by the message "Paired device successfully with new key".
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | [HEM-7322T](deviceSpecific/hem-7322t.py) | M700 Intelli IT | ✔️ | ✔️ | ✔️ | ✔️ | userx14 |
 | [HEM-7361T](deviceSpecific/hem-7361t.py)  | M500 Intelli IT | ✔️ | ❓️ | ❓️ | ❓ | LazyT, userx14 |
-| HEM-7600T | Omron Evolv | ✔️ | ❌ | ❌ | ❌ |  |
+| [HEM-7600T](deviceSpecific/hem-7600t.py) | Omron Evolv | ✔️ | ✔️ | ✔️ | ✔️ | vulcainman |
 
 ✔️=tested working, ❓=not tested , ❌=not supported yet <br>
 Please open an issue if you can test a feature or an currently unsupported device.
