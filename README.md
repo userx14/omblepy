@@ -53,8 +53,6 @@ Success is indicated by the message "Paired device successfully with new key".
 
 ✔️=tested working, ❓=not tested , ❌=not supported yet <br>
 
-HEM-7600T has support in the <a href="https://github.com/userx14/omblepy/tree/sharedDriverTest"> shared driver branch </a> which should also be used if you intend to add support for new devices, as it will be much simpler to do so and it will be merged with the main branch soon.
-
 Please open an issue if you can test a feature or an currently unsupported device.
 
 ## Troubleshooting
