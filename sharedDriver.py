@@ -40,7 +40,11 @@ class sharedDeviceDriverCode():
         await btobj.startTransmission()
         
         #cache settings for time sync and for unread record counter
-        self.cachedSettingsBytes = await btobj.readContinuousEepromData(self.settingsReadAddress, self.settingsWriteAddress - self.settingsReadAddress)
+        self.cachedSettingsBytes = await btobj.readContinuousEepromData(self.settingsReadAddress, self.settingsTimeSyncBytesSlice.start)
+        
+        #hem7361 does likely not support reads with blocks crossing the boundary between the timeSyncSlice and the rest of the settings
+        timeSyncNumBytes = self.settingsTimeSyncBytesSlice.stop - self.settingsTimeSyncBytesSlice.start
+        self.cachedSettingsBytes += await btobj.readContinuousEepromData(self.settingsReadAddress + self.settingsTimeSyncBytesSlice.stop, timeSyncNumBytes)
         
         if(useUnreadCounter):
             allUsersReadCommandsList = await self._getReadCommands_OnlyNewRecords()
