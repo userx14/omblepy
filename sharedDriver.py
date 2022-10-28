@@ -3,15 +3,15 @@ logger = logging.getLogger("omblepy")
 
 class sharedDeviceDriverCode():
     #these need to be overwritten by device specific version
-    deviceEndianess                 = None
-    userStartAdressesList           = None
-    perUserRecordsCountList         = None
-    recordByteSize                  = None
-    transmissionBlockSize           = None
-    settingsReadAddress             = None
-    settingsWriteAddress            = None
-    settingsUnreadRecordsBytesSlice = None
-    settingsTimeSyncBytesSlice      = None
+    deviceEndianess            = None
+    userStartAdressesList      = None
+    perUserRecordsCountList    = None
+    recordByteSize             = None
+    transmissionBlockSize      = None
+    settingsReadAddress        = None
+    settingsWriteAddress       = None
+    settingsUnreadRecordsBytes = None
+    settingsTimeSyncBytes      = None
     
     #abstract method, implemented by the device specific driver
     def deviceSpecific_ParseRecordFormat(self, singleRecordAsByteArray):
@@ -30,21 +30,24 @@ class sharedDeviceDriverCode():
     
     def resetUnreadRecordsCounter(self):
         #special code for no new records is 0x8000
-        unreadRecordsSettingsCopy = self.cachedSettingsBytes[self.settingsUnreadRecordsBytesSlice]
+        unreadRecordsSettingsCopy = self.cachedSettingsBytes[slice(*self.settingsUnreadRecordsBytes)]
         resetUnreadRecordsBytes = (0x8000).to_bytes(2, byteorder=self.deviceEndianess)
         newUnreadRecordSettings = unreadRecordsSettingsCopy[:4] + resetUnreadRecordsBytes * 2 + unreadRecordsSettingsCopy[8:]
-        self.cachedSettingsBytes[self.settingsUnreadRecordsBytesSlice] = newUnreadRecordSettings
+        self.cachedSettingsBytes[slice(*self.settingsUnreadRecordsBytes)] = newUnreadRecordSettings
     
     async def getRecords(self, btobj, useUnreadCounter, syncTime):
         await btobj.unlockWithUnlockKey()
         await btobj.startTransmission()
         
         #cache settings for time sync and for unread record counter
-        self.cachedSettingsBytes = await btobj.readContinuousEepromData(self.settingsReadAddress, self.settingsTimeSyncBytesSlice.start)
         
-        #hem7361 does likely not support reads with blocks crossing the boundary between the timeSyncSlice and the rest of the settings
-        timeSyncNumBytes = self.settingsTimeSyncBytesSlice.stop - self.settingsTimeSyncBytesSlice.start
-        self.cachedSettingsBytes += await btobj.readContinuousEepromData(self.settingsReadAddress + self.settingsTimeSyncBytesSlice.stop, timeSyncNumBytes)
+        #initialize cached settings bytes with zeros and use bytearray so that the values are mutable
+        self.cachedSettingsBytes = bytearray(b'\0' * (self.settingsWriteAddress - self.settingsReadAddress)) 
+        for section in [self.settingsUnreadRecordsBytes, self.settingsTimeSyncBytes]:
+            sectionNumBytes = section[1] - section[0]
+            if(sectionNumBytes >= 54):
+                raise ValueError("Section to big for a single read")
+            self.cachedSettingsBytes[slice(*section)] = await btobj.readContinuousEepromData(self.settingsReadAddress+section[0], sectionNumBytes, sectionNumBytes)
         
         if(useUnreadCounter):
             allUsersReadCommandsList = await self._getReadCommands_OnlyNewRecords()
@@ -76,11 +79,11 @@ class sharedDeviceDriverCode():
         #maybe this could be combined into a single write
         if(syncTime):
             self.deviceSpecific_syncWithSystemTime()
-            bytesToWrite = self.cachedSettingsBytes[self.settingsTimeSyncBytesSlice]
-            await btobj.writeContinuousEepromData(self.settingsWriteAddress + self.settingsTimeSyncBytesSlice.start, bytesToWrite, btBlockSize = len(bytesToWrite))
+            bytesToWrite = self.cachedSettingsBytes[slice(*self.settingsTimeSyncBytes)]
+            await btobj.writeContinuousEepromData(self.settingsWriteAddress + self.settingsTimeSyncBytes[0], bytesToWrite, btBlockSize = len(bytesToWrite))
         if(useUnreadCounter):
-            bytesToWrite = self.cachedSettingsBytes[self.settingsUnreadRecordsBytesSlice]
-            await btobj.writeContinuousEepromData(self.settingsWriteAddress + self.settingsUnreadRecordsBytesSlice.start, bytesToWrite, btBlockSize = len(bytesToWrite))
+            bytesToWrite = self.cachedSettingsBytes[slice(*self.settingsUnreadRecordsBytes)]
+            await btobj.writeContinuousEepromData(self.settingsWriteAddress + self.settingsUnreadRecordsBytes[0], bytesToWrite, btBlockSize = len(bytesToWrite))
         
         await btobj.endTransmission()
         return allUserRecordsList
@@ -111,7 +114,7 @@ class sharedDeviceDriverCode():
 
     async def _getReadCommands_OnlyNewRecords(self):
         allUsersReadCommandsList = []
-        readRecordsInfoByteArray = self.cachedSettingsBytes[self.settingsUnreadRecordsBytesSlice]
+        readRecordsInfoByteArray = self.cachedSettingsBytes[slice(*self.settingsUnreadRecordsBytes)]
         numUsers = len(self.userStartAdressesList)
         for userIdx in range(numUsers):
             #byte location depends on endianess, so use _bytearrayBitsToInt to account for this
