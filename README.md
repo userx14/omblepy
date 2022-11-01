@@ -105,12 +105,11 @@ response type bytes | function | packet size
 `81c0` | response write data | same size as corresponding write command
 `8f00` | response end transmission | 0x08 bytes
 
-### Packet format for read / writes:
+### Packet header for reads:
 Example message sent to request a read of 0x26 bytes starting from address 0x0260:
-messagelength | command type      | start address | readsize | padding     | crc with xor
+messagelength | command type      | start address | readsize | padding     | crc, such that all bytes xored = 0
 ---           | ---               | ---           | ---      | ---         | ---
-0x08          | 0x0100            | 0x0260        | 0x26     | 0x00        | 4d
-in bytes      | read from address | in bytes      | in bytes | 1 byte      | such that all bytes xored = zero
+0x08          | 0x0100            | 0x0260        | 0x26     | 0x00        | 0x4d
 
 
 ## Related Projects
