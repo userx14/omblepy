@@ -250,19 +250,25 @@ class bluetoothTxRxHandler:
 
 def appendCsv(allRecords):
     for userIdx in range(len(allRecords)):
-        oldCsvFile = pathlib.Path("user{userIdx+1}.csv")
+        oldCsvFile = pathlib.Path(f"user{userIdx+1}.csv")
+        dateText = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
+        backup = pathlib.Path(f"backup_user{userIdx+1}_{dateText}.csv")
+        backup.write_bytes(oldCsvFile.read_bytes())
+        datesOfNewRecords = [record["datetime"] for record in allRecords[userIdx]]
         if(oldCsvFile.is_file()):
             with open(f"user{userIdx+1}.csv", mode='r', newline='', encoding='utf-8') as infile:
                 reader = csv.DictReader(infile)
-                for recordDict in reader:
-                    if recordDict not in allRecords[userIdx]: #only add if record is new
-                        allRecords[userIdx].append(recordDict)
+                for oldRecordDict in reader:
+                    oldRecordDict["datetime"] = datetime.datetime.strptime(oldRecordDict["datetime"], "%Y-%m-%d %H:%M:%S")
+                    if oldRecordDict["datetime"] not in datesOfNewRecords: #only add if record is new    
+                        allRecords[userIdx].append(oldRecordDict)
         allRecords[userIdx] = sorted(allRecords[userIdx], key = lambda x: x["datetime"])
         logger.info(f"writing data to user{userIdx+1}.csv")
         with open(f"user{userIdx+1}.csv", mode='w', newline='', encoding='utf-8') as outfile:
             writer = csv.DictWriter(outfile, fieldnames = ["datetime", "dia", "sys", "bpm", "mov", "ihb"])
             writer.writeheader()
             for recordDict in allRecords[userIdx]:
+                recordDict["datetime"] = recordDict["datetime"].strftime("%Y-%m-%d %H:%M:%S")
                 writer.writerow(recordDict)
 
 async def selectBLEdevices():
@@ -346,11 +352,15 @@ async def main():
         bluetoothTxRxObj = bluetoothTxRxHandler()
         if(args.pair):
             await bluetoothTxRxObj.writeNewUnlockKey()
-        logger.info("communication started")
-        devSpecificDriver = deviceSpecific.deviceSpecificDriver()
-        allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync)
-        logger.info("communication finished")
-        appendCsv(allRecs)
+            #this seems to be neccesary when the device has not been paired to any device
+            await bluetoothTxRxObj.startTransmission()
+            await bluetoothTxRxObj.endTransmission()
+        else:
+            logger.info("communication started")
+            devSpecificDriver = deviceSpecific.deviceSpecificDriver()
+            allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync)
+            logger.info("communication finished")
+            appendCsv(allRecs)
     finally:
         logger.info("unpair and disconnect")
         await bleClient.unpair()

@@ -3,10 +3,10 @@ Device has i2c eeprom with marking "4G64" at address 0b10100000 with 64 Kbits, 3
 Eeprom programmer ch341a can read and write this eeprom, but only in desoldered state, since the main ic protection diodes interfere with reading.
 Eeprom is used by the main ic with 1.8V, but can be programmed out of circuit with 3.3V.
 The addresses used by the bluetooth protocol do not correspond directely to eeprom addresses.
-bt read 0x10 bytes at addr 0x000 = Eeprom read 0x10 bytes at 0x050 (device id)
+bt device id read 0x10 bytes     = Eeprom read 0x10 bytes at 0x050
 bt read 0x26 bytes at addr 0x260 = Eeprom read 0x26 bytes at 0x061 (setting read)
 bt read 0x0e bytes at addr 0x2ac = Eeprom read 0x0e bytes at 0x0ad (first record of user1)
-bt read 0x0e bytes at addr 0x6D8 = Eeprom read 0x0e bytes at 0x4d9 (first record of user2)
+bt read 0x0e bytes at addr 0x824 = Eeprom read 0x0e bytes at 0x625 (first record of user2)
 
 Difference between M700 intelli it and M500:
 - different soldering positions for 100Ohm pullup / pulldown resistors close to "ic6 con"
@@ -20,3 +20,7 @@ BL: Eeprom Data, also connected to main processor!
 BK: EEprom Vss GND, connected to all ic's on the board!
 R:  EEprom Vcc 1.8V, connected to all ic's on the board!
 - could theoretically be used to read out records on m500 without bluetooth functionality by sniffing writes from the main ic
+
+Key combinations:
+"Memory" + "Start/Stop" for 10 seconds -> displays some numbers, possibly version?
+press "Memory" once, then hold "Memory"+"Start/Stop" for 3 seconds -> delete all records for this user
