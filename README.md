@@ -59,9 +59,10 @@ This is most important when you are trying to add support for a new device.
 ## Omron device support matrix
 | device model | sold under name |  pairing | basic data readout | new record counter | time sync | contributors / testers / help by | 
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
-| [HEM-7322T](deviceSpecific/hem-7322t.py) | M700 Intelli IT 				  	| ✔️ | ✔️ | ✔️ | ✔️ | userx14 				  	|
+| [HEM-7322T](deviceSpecific/hem-7322t.py) | M700 Intelli IT 				  	| ✔️ | ✔️ | ✔️ | ✔️ | userx14 				  	          |
 | [HEM-7361T](deviceSpecific/hem-7361t.py) | M500 Intelli IT / M7 Intelli IT 	| ✔️ | ✔️ | ✔️ | ✔ | LazyT, userx14, zivanfi 	|
-| [HEM-7600T](deviceSpecific/hem-7600t.py) | Omron Evolv 				      	| ✔️ | ✔️ | ✔️ | ✔️ | vulcainman 				|
+| [HEM-7600T](deviceSpecific/hem-7600t.py) | Omron Evolv 				      	| ✔️ | ✔️ | ✔️ | ✔️ | vulcainman 				            |
+| [HEM-7155T](deviceSpecific/hem-7155t.py) | M400  				      	      | ✔️ | ✔️ | ❓ | ✔️ | dromie 				                |
 
 ✔️=tested working, ❓=not tested , ❌=not supported yet <br>
 
