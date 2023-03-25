@@ -8,6 +8,7 @@ import sys
 import pathlib
 import logging
 import csv
+import json
 
 #global constants
 parentService_UUID        = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
@@ -247,21 +248,25 @@ class bluetoothTxRxHandler:
         await bleClient.stop_notify(self.deviceUnlock_UUID)
         return
 
+def readCsv(filename):
+    records = []
+    with open(filename, mode='r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        for oldRecordDict in reader:
+            oldRecordDict["datetime"] = datetime.datetime.strptime(oldRecordDict["datetime"], "%Y-%m-%d %H:%M:%S")
+            records.append(oldRecordDict)
+    return records
 
 def appendCsv(allRecords):
     for userIdx in range(len(allRecords)):
         oldCsvFile = pathlib.Path(f"user{userIdx+1}.csv")
         dateText = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
         backup = pathlib.Path(f"backup_user{userIdx+1}_{dateText}.csv")
-        backup.write_bytes(oldCsvFile.read_bytes())
         datesOfNewRecords = [record["datetime"] for record in allRecords[userIdx]]
         if(oldCsvFile.is_file()):
-            with open(f"user{userIdx+1}.csv", mode='r', newline='', encoding='utf-8') as infile:
-                reader = csv.DictReader(infile)
-                for oldRecordDict in reader:
-                    oldRecordDict["datetime"] = datetime.datetime.strptime(oldRecordDict["datetime"], "%Y-%m-%d %H:%M:%S")
-                    if oldRecordDict["datetime"] not in datesOfNewRecords: #only add if record is new    
-                        allRecords[userIdx].append(oldRecordDict)
+            backup.write_bytes(oldCsvFile.read_bytes())
+            records = readCsv(f"user{userIdx+1}.csv")
+            allRecords[userIdx].extend(filter(lambda x: x["datetime"] not in datesOfNewRecords,records))
         allRecords[userIdx] = sorted(allRecords[userIdx], key = lambda x: x["datetime"])
         logger.info(f"writing data to user{userIdx+1}.csv")
         with open(f"user{userIdx+1}.csv", mode='w', newline='', encoding='utf-8') as outfile:
@@ -270,6 +275,20 @@ def appendCsv(allRecords):
             for recordDict in allRecords[userIdx]:
                 recordDict["datetime"] = recordDict["datetime"].strftime("%Y-%m-%d %H:%M:%S")
                 writer.writerow(recordDict)
+
+def saveUBPMJson(allRecords):
+    f = pathlib.Path(f"ubpm.json")
+    UBPM = {}
+    UBPM["UBPM"] = {}
+    for userIdx in range(len(allRecords)):
+        UBPM["UBPM"][f"U{userIdx+1}"] = []
+        for rec in allRecords[userIdx]:
+            recdate=datetime.datetime.strptime(rec["datetime"], "%Y-%m-%d %H:%M:%S")
+            UBPM["UBPM"][f"U{userIdx+1}"].append({
+                                "date": recdate.strftime("%d.%m.%Y"),
+                                'time': recdate.strftime("%H:%M:%S"), 'msg': "",
+                                'sys': int(rec['sys']), 'dia': int(rec['dia']), 'bpm': int(rec['bpm']), 'ihb': int(rec['ihb']), 'mov': int(rec['mov']) })
+    f.write_text(json.dumps(UBPM, indent=4, sort_keys=True, default=str))
 
 async def selectBLEdevices():
     print("Select your Omron device from the list below...")
@@ -361,6 +380,7 @@ async def main():
             allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync)
             logger.info("communication finished")
             appendCsv(allRecs)
+            saveUBPMJson(allRecs)
     finally:
         logger.info("unpair and disconnect")
         await bleClient.unpair()
