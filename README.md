@@ -72,8 +72,8 @@ since the calibration data for the pressure sensor is likeley also stored there.
 
 ## Troubleshooting
 - Remove the pairing with the omron device using your os bluetooth dialog.
-- Try a different pc / os if the pairing does not work.
-  - On the devices I used to test win10 did always work, while ubuntu didn't work on some versions.
+- Use a bluetooth chipset/dongle which supports at least bluetooth 4.2, better 5.0
+- On the devices I had avilable for testing, win10 did always work, while ubuntu didn't work on some versions.
 - If the pairing works and there is an error in the readout use the `--loggerDebug` flag and please open an issue.
 - Windows specific
   - Do not use the CSR harmony stack (CSR 8510 based usb dongles), it is incompatible.
