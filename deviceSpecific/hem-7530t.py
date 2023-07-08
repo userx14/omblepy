@@ -7,7 +7,7 @@ sys.path.append('..')
 from sharedDriver import sharedDeviceDriverCode
 
 class deviceSpecificDriver(sharedDeviceDriverCode):
-    deviceEndianess                 = "little"
+    deviceEndianess                 = "big"
     userStartAdressesList           = [0x2e8]
     perUserRecordsCountList         = [90]
     recordByteSize                  = 0x0e
@@ -16,28 +16,25 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
     settingsReadAddress             = 0x0260
     settingsWriteAddress            = 0x02a4
 
-    #settingsUnreadRecordsBytes      = [0x00, 0x10]
-    #settingsTimeSyncBytes           = [0x2C, 0x3C]
+    #settingsUnreadRecordsBytes      = [0x00, 0x08]
+    #settingsTimeSyncBytes           = [0x14, 0x1e]
     
     def deviceSpecific_ParseRecordFormat(self, singleRecordAsByteArray):
-        print(singleRecordAsByteArray)
-        """
         recordDict             = dict()
-        minute                 = self._bytearrayBitsToInt(singleRecordAsByteArray, 68, 73)
-        second                 = self._bytearrayBitsToInt(singleRecordAsByteArray, 74, 79)
+        recordDict["dia"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 0,  7)
+        recordDict["sys"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 8,  15) + 25
+        year                   = self._bytearrayBitsToInt(singleRecordAsByteArray, 18, 23) + 2000
+        recordDict["bpm"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 24, 31)
+        recordDict["mov"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 32, 32)
+        recordDict["ihb"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 33, 33)
+        month                  = self._bytearrayBitsToInt(singleRecordAsByteArray, 34, 37)
+        day                    = self._bytearrayBitsToInt(singleRecordAsByteArray, 38, 42)
+        hour                   = self._bytearrayBitsToInt(singleRecordAsByteArray, 43, 47)
+        minute                 = self._bytearrayBitsToInt(singleRecordAsByteArray, 52, 57)
+        second                 = self._bytearrayBitsToInt(singleRecordAsByteArray, 58, 63)
         second                 = min([second, 59]) #for some reason the second value can range up to 63
-        recordDict["mov"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 80, 80)
-        recordDict["ihb"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 81, 81)
-        month                  = self._bytearrayBitsToInt(singleRecordAsByteArray, 82, 85)
-        day                    = self._bytearrayBitsToInt(singleRecordAsByteArray, 86, 90)
-        hour                   = self._bytearrayBitsToInt(singleRecordAsByteArray, 91, 95)
-        year                   = self._bytearrayBitsToInt(singleRecordAsByteArray, 98, 103) + 2000
-        recordDict["bpm"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 104, 111)
-        recordDict["dia"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 112, 119)
-        recordDict["sys"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 120,  127) + 25
         recordDict["datetime"] = datetime.datetime(year, month, day, hour, minute, second)
-        """
-        return dict()
+        return recordDict
     
     def deviceSpecific_syncWithSystemTime(self):
         raise ValueError("not supported")
