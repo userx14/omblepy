@@ -257,9 +257,10 @@ def readCsv(filename):
             records.append(oldRecordDict)
     return records
 
-def appendCsv(allRecords):
+def appendCsv(allRecords, deviceName):
     for userIdx in range(len(allRecords)):
-        oldCsvFile = pathlib.Path(f"user{userIdx+1}.csv")
+        oldCsvFile = pathlib.Path(f"{deviceName}/user{userIdx+1}.csv")
+        oldCsvFile.parent.mkdir(parents=True, exist_ok=True)
         dateText = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
         backup = pathlib.Path(f"backup_user{userIdx+1}_{dateText}.csv")
         datesOfNewRecords = [record["datetime"] for record in allRecords[userIdx]]
@@ -276,8 +277,9 @@ def appendCsv(allRecords):
                 recordDict["datetime"] = recordDict["datetime"].strftime("%Y-%m-%d %H:%M:%S")
                 writer.writerow(recordDict)
 
-def saveUBPMJson(allRecords):
-    f = pathlib.Path(f"ubpm.json")
+def saveUBPMJson(allRecords, deviceName):
+    f = pathlib.Path(f"{deviceName}/ubpm.json")
+    f.parent.mkdir(parents=True, exist_ok=True)
     UBPM = {}
     UBPM["UBPM"] = {}
     for userIdx in range(len(allRecords)):
@@ -379,8 +381,8 @@ async def main():
             devSpecificDriver = deviceSpecific.deviceSpecificDriver()
             allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync)
             logger.info("communication finished")
-            appendCsv(allRecs)
-            saveUBPMJson(allRecs)
+            appendCsv(allRecs, args.device)
+            saveUBPMJson(allRecs, args.device)
     finally:
         logger.info("unpair and disconnect")
         await bleClient.unpair()
