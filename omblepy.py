@@ -248,9 +248,9 @@ class bluetoothTxRxHandler:
         await bleClient.stop_notify(self.deviceUnlock_UUID)
         return
 
-def readCsv(filename):
+def readCsv(path):
     records = []
-    with open(filename, mode='r', newline='', encoding='utf-8') as infile:
+    with path.open(mode='r', newline='', encoding='utf-8') as infile:
         reader = csv.DictReader(infile)
         for oldRecordDict in reader:
             oldRecordDict["datetime"] = datetime.datetime.strptime(oldRecordDict["datetime"], "%Y-%m-%d %H:%M:%S")
@@ -260,17 +260,19 @@ def readCsv(filename):
 def appendCsv(allRecords, deviceName):
     for userIdx in range(len(allRecords)):
         oldCsvFile = pathlib.Path(f"{deviceName}/user{userIdx+1}.csv")
-        oldCsvFile.parent.mkdir(parents=True, exist_ok=True)
+        
         dateText = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
-        backup = pathlib.Path(f"backup_user{userIdx+1}_{dateText}.csv")
+        backup = pathlib.Path(f"{deviceName}/backup_user{userIdx+1}_{dateText}.csv")
         datesOfNewRecords = [record["datetime"] for record in allRecords[userIdx]]
         if(oldCsvFile.is_file()):
             backup.write_bytes(oldCsvFile.read_bytes())
-            records = readCsv(f"user{userIdx+1}.csv")
+            records = readCsv(oldCsvFile)
             allRecords[userIdx].extend(filter(lambda x: x["datetime"] not in datesOfNewRecords,records))
+        newCsvFile = oldCsvFile
         allRecords[userIdx] = sorted(allRecords[userIdx], key = lambda x: x["datetime"])
         logger.info(f"writing data to user{userIdx+1}.csv")
-        with open(f"user{userIdx+1}.csv", mode='w', newline='', encoding='utf-8') as outfile:
+        
+        with newCsvFile.open(mode='w', newline='', encoding='utf-8') as outfile:
             writer = csv.DictWriter(outfile, fieldnames = ["datetime", "dia", "sys", "bpm", "mov", "ihb"])
             writer.writeheader()
             for recordDict in allRecords[userIdx]:
