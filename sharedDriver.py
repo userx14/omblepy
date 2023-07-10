@@ -41,13 +41,14 @@ class sharedDeviceDriverCode():
         
         #cache settings for time sync and for unread record counter
         
-        #initialize cached settings bytes with zeros and use bytearray so that the values are mutable
-        self.cachedSettingsBytes = bytearray(b'\0' * (self.settingsWriteAddress - self.settingsReadAddress)) 
-        for section in [self.settingsUnreadRecordsBytes, self.settingsTimeSyncBytes]:
-            sectionNumBytes = section[1] - section[0]
-            if(sectionNumBytes >= 54):
-                raise ValueError("Section to big for a single read")
-            self.cachedSettingsBytes[slice(*section)] = await btobj.readContinuousEepromData(self.settingsReadAddress+section[0], sectionNumBytes, sectionNumBytes)
+        if(syncTime or useUnreadCounter):
+            #initialize cached settings bytes with zeros and use bytearray so that the values are mutable
+            self.cachedSettingsBytes = bytearray(b'\0' * (self.settingsWriteAddress - self.settingsReadAddress)) 
+            for section in [self.settingsUnreadRecordsBytes, self.settingsTimeSyncBytes]:
+                sectionNumBytes = section[1] - section[0]
+                if(sectionNumBytes >= 54):
+                    raise ValueError("Section to big for a single read")
+                self.cachedSettingsBytes[slice(*section)] = await btobj.readContinuousEepromData(self.settingsReadAddress+section[0], sectionNumBytes, sectionNumBytes)
         
         if(useUnreadCounter):
             allUsersReadCommandsList = await self._getReadCommands_OnlyNewRecords()
