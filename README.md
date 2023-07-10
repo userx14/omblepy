@@ -46,7 +46,7 @@ Success is indicated by the message "Paired device successfully with new key".
 | flag  | alternative long flag  | always required | required on first connection | potentialy dangerous eeprom write | description | usage example | 
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | `-h`  | `--help` | - | - | - | display help for all possible flags, similar to this table | `python3 ./omblepy.py -h` |
-| `-d`  | `--device` |✔️ | ✔️ | - | select which device libary will be loaded | `python3 ./omblepy.py -d HEM-7322T` |
+| `-d`  | `--device` |✔️ | ✔️ | - | select which device libary will be loaded from [here](deviceSpecific) | `python3 ./omblepy.py -d HEM-7322T` |
 | `-p`  | `--pair` | ❌ | ✔️ | - | use to write pairing key on first connection with this pc | `python3 ./omblepy.py -d HEM-7322T -p` |
 | `-m`  | `--mac` |❌ | ❌ | - | select omron devices mac and skip bluetooth scan and device selection dialog | `python3 ./omblepy.py -d HEM-7322T -m 11:22:33:44:55:66` |
 | `-n`  | `--newRecOnly` | ❌ | ❌ | ❗ | instead of downloading all records, check and update the "new records couter" and only transfer new records | `python3 ./omblepy.py -d HEM-7322T -n` |
@@ -60,9 +60,13 @@ This is most important when you are trying to add support for a new device.
 | device model | sold under name |  pairing | basic data readout | new record counter | time sync | contributors / testers / help by | 
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | [HEM-7322T](deviceSpecific/hem-7322t.py) | M700 Intelli IT 				  	| ✔️ | ✔️ | ✔️ | ✔️ | userx14 				  	          |
-| [HEM-7361T](deviceSpecific/hem-7361t.py) | M500 Intelli IT / M7 Intelli IT 	| ✔️ | ✔️ | ✔️ | ✔ | LazyT, userx14, zivanfi 	|
+| [HEM-7361T](deviceSpecific/hem-7361t.py) | M500 Intelli IT / M7 Intelli IT 	| ✔️ | ✔️ | ✔️ | ✔️ | LazyT, userx14, zivanfi 	|
 | [HEM-7600T](deviceSpecific/hem-7600t.py) | Omron Evolv 				      	| ✔️ | ✔️ | ✔️ | ✔️ | vulcainman 				            |
 | [HEM-7155T](deviceSpecific/hem-7155t.py) | M400  				      	      | ✔️ | ✔️ | ✔️ | ✔️ | dromie 				                |
+| [HEM-7530T](deviceSpecific/hem-7530t.py) | Omron Complete (no support for EKG) | ✔️ | ✔️ | ❌ | ❌ | Toei79, userx14  |
+| [HEM-7150T](deviceSpecific/hem-7150t.py) | BP7250  | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14  |
+| [HEM-7342T](deviceSpecific/hem-7342t.py) | BP7450  | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14  |
+
 
 ✔️=tested working, ❓=not tested , ❌=not supported yet <br>
 
