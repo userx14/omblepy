@@ -269,6 +269,7 @@ def appendCsv(allRecords, deviceName):
             records = readCsv(oldCsvFile)
             allRecords[userIdx].extend(filter(lambda x: x["datetime"] not in datesOfNewRecords,records))
         newCsvFile = oldCsvFile
+        newCsvFile.parent.mkdir(parents=True, exist_ok=True)
         allRecords[userIdx] = sorted(allRecords[userIdx], key = lambda x: x["datetime"])
         logger.info(f"writing data to user{userIdx+1}.csv")
         
@@ -335,15 +336,15 @@ async def main():
     if(not args.pair and not args.device):
         raise ValueError("When not in pairing mode, please specify your device type name with -d or --device")
         return
-    if(args.device):
-        deviceName = args.device.strip("'").strip('\"') #strip quotes around arg
-        sys.path.insert(0, "./deviceSpecific")
-        try:
-            logger.info(f"Attempt to import module for device {deviceName.lower()}")
-            deviceSpecific = __import__(deviceName.lower())
-        except ImportError:
-            raise ValueError("the device is no supported yet, you can help by contributing :)")
-            return
+    
+    deviceName = args.device.strip("'").strip('\"') #strip quotes around arg
+    sys.path.insert(0, "./deviceSpecific")
+    try:
+        logger.info(f"Attempt to import module for device {deviceName.lower()}")
+        deviceSpecific = __import__(deviceName.lower())
+    except ImportError:
+        raise ValueError("the device is no supported yet, you can help by contributing :)")
+        return
     
     #select device mac address
     validMacRegex = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")  
@@ -383,8 +384,8 @@ async def main():
             devSpecificDriver = deviceSpecific.deviceSpecificDriver()
             allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync)
             logger.info("communication finished")
-            appendCsv(allRecs, args.device)
-            saveUBPMJson(allRecs, args.device)
+            appendCsv(allRecs, deviceName)
+            saveUBPMJson(allRecs, deviceName)
     finally:
         logger.info("unpair and disconnect")
         await bleClient.unpair()
