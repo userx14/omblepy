@@ -13,7 +13,7 @@ Then install the required libraries by opening a console window and executing th
 
 ## Windows 11
 Not supported due to extremly short bluetooth pairing timeout.
-Does work, but initial bluetooth pairing is unrealiable, dialog box must be confirmed in less than 1 second. 
+Does work, but bluetooth pairing required on each connection is unrealiable, dialog box must be confirmed in less than 1 second. 
 Installation in principle equivalent to Win 10, but can't recommend using it at the moment.
 
 ## Linux setup
