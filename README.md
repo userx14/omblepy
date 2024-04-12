@@ -2,7 +2,7 @@
 Cli tool to read records from Omron Bluetooth-LE measurement instruments
 
 
-## Windows setup
+## Windows 7 - 10
 First install latest python 3.x release.
 Use the <a href="https://www.python.org/downloads/">official installer</a> and enable the "add to path option" in the installer. <br>
 Then install the required libraries by opening a console window and executing the two commands:
@@ -10,6 +10,11 @@ Then install the required libraries by opening a console window and executing th
 | -- | -- | -- | -- |
 | `pip install bleak` | <a href="https://pypi.org/project/bleak/">bleak</a> | v0.18.1 | bluetooth-le communication |
 | `pip install terminaltables` | <a href="https://pypi.org/project/terminaltables/">terminaltables</a> | v3.1.1 | formated command line output table for scanned devices |
+
+## Windows 11
+Not supported due to extremly short bluetooth pairing timeout.
+Does work, but initial bluetooth pairing is unrealiable, dialog box must be confirmed in less than 1 second. 
+Installation in principle equivalent to Win 10, but can't recommend using it at the moment.
 
 ## Linux setup
 Install python ( ≥ version 3.8) and the two required libraries:
@@ -80,6 +85,9 @@ since the calibration data for the pressure sensor is likeley also stored there.
 - On the devices I had avilable for testing, win10 did always work, while ubuntu didn't work on some versions.
 - If the pairing works and there is an error in the readout use the `--loggerDebug` flag and please open an issue.
 - Windows specific
+  - Windows 11 has an extremly short bluetooth pairing timeout.
+    You have to open the bluetooth settings and instantly confirm the pairing.
+    It works but is very unreliable, better consider Widnwos 11 as not supported right now.
   - Do not use the CSR harmony stack (CSR 8510 based usb dongles), it is incompatible.
 - Linux specific
   - Preferably test on a device with only one bluetooth adapter connected.
