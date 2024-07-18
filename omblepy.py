@@ -293,17 +293,17 @@ def saveUBPMJson(allRecords):
 async def selectBLEdevices():
     print("Select your Omron device from the list below...")
     while(True):
-        devices = await bleak.BleakScanner.discover()
-        devices = sorted(devices, key = lambda x: x.rssi, reverse=True)
+        devices = await bleak.BleakScanner.discover(return_adv=True)
+        devices = list(sorted(devices.items(), key = lambda x: x[1][1].rssi, reverse=True))
         tableEntries = []
         tableEntries.append(["ID", "MAC", "NAME", "RSSI"])
-        for deviceIdx, device in enumerate(devices):
-            tableEntries.append([deviceIdx, device.address, device.name, device.rssi])
+        for deviceIdx, (macAddr, (bleDev, advData)) in enumerate(devices):
+            tableEntries.append([deviceIdx, macAddr, bleDev.name, advData.rssi])
         print(terminaltables.AsciiTable(tableEntries).table)
         res = input("Enter ID or just press Enter to rescan.\n")
         if(res.isdigit() and int(res) in range(len(devices))):
             break
-    return devices[int(res)].address
+    return devices[int(res)][0]
 
 async def main():
     global bleClient
