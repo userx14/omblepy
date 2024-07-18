@@ -130,3 +130,9 @@ messagelength | command type      | start address | readsize | padding     | crc
 ## Related Projects
 A huge thank you goes to LazyT and his <a href=https://codeberg.org/LazyT/ubpm>UBPM project</a>
 which provided extremely usefull insight how the reception with multiple bluetooth channels works.
+
+The <a href=https://github.com/RobertWojtowicz/export2garmin>export2garmin</a> project 
+can be used to import the data from the omron device into Garmin Connect.
+
+The USB communcation of selected omron medical equipment is implemented by <a href=https://github.com/openyou/libomron>libomron</a> 
+and shares some simmilarities with the bluetooth communication.
