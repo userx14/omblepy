@@ -15,8 +15,10 @@ Then install the required libraries by opening a console window and executing th
 Not supported due to extremly short bluetooth pairing timeout.
 Does work, but bluetooth pairing required on each connection is unrealiable, dialog box must be confirmed in less than 1 second. 
 Installation in principle equivalent to Win 10, but can't recommend using it at the moment.
+Consider using the under-development [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge), that bypasses the os bluetooth stack completely.
 
 ## Linux setup
+Only specific versions of the bluetooth are working, consider using the under-development [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge).
 Install python ( ≥ version 3.8) and the two required libraries:
 ```
 apt install python3.10
