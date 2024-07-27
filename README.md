@@ -1,47 +1,30 @@
 # Omblepy
 Cli tool to read records from Omron Bluetooth-LE measurement instruments
 
+❗ ESP32 bridge version, needs no bluetooth hardware on pc side, but setup esp32 connected over usb serial❗
+This version is currently under evaluation for bypassing os related bluetooth problems.
 
-## Windows 7 - 10
+
+## OS independent bridge script
 First install latest python 3.x release.
 Use the <a href="https://www.python.org/downloads/">official installer</a> and enable the "add to path option" in the installer. <br>
 Then install the required libraries by opening a console window and executing the two commands:
 | command  | library name | tested with library version |module use |
 | -- | -- | -- | -- |
-| `pip install bleak` | <a href="https://pypi.org/project/bleak/">bleak</a> | v0.18.1 | bluetooth-le communication |
+| `pip install pyserial` | <a href="https://pypi.org/project/pyserial/">pyserial</a> | v3.5 | serial communication |
 | `pip install terminaltables` | <a href="https://pypi.org/project/terminaltables/">terminaltables</a> | v3.1.1 | formated command line output table for scanned devices |
 
-## Windows 11
-Not supported due to extremly short bluetooth pairing timeout.
-Does work, but bluetooth pairing required on each connection is unrealiable, dialog box must be confirmed in less than 1 second. 
-Installation in principle equivalent to Win 10, but can't recommend using it at the moment.
-
-## Linux setup
-Install python ( ≥ version 3.8) and the two required libraries:
-```
-apt install python3.10
-pip3 install bleak
-pip3 install terminaltables
-```
-
-## Windows Usage
+## Usage
 For the first time pairing process you need to use the -p flag and enable pairing mode by holding the bluetooth button until you see the blinking -P- in the display: 
 ```
-python ./omblepy.py -p -d HEM-7322T
+python ./omblepy_bridge.py -b COM3 -p -d HEM-7322T
 ```
 
 After the first connection the -p flag can be omitted, even when executing omblepy on a different device:
 ```
-python ./omblepy.py -d HEM-7322T
+python ./omblepy_bridge.py -b COM3 -d HEM-7322T
 ```
-## Linux Usage
-(same as Windows usage, but python command is different)
-```
-python3 ./omblepy.py -p -d HEM-7322T
-```
-```
-python3 ./omblepy.py -d HEM-7322T
-```
+
 ### Pairing for UBPM
 If you preform this pairing for <a href="https://codeberg.org/LazyT/ubpm/">ubpm</a>, just use one of the supported devices (e.g. `-d HEM-7322T`), even if your device model is different. As far as I know the pairing process is simmilar for all omron devices. If you use an unsupported device it is expected that the pairing will work and that the -P- on the display of the omron device will change to a small square. But the tool will crash futher in the readout, because the data format / readout commands for the stored records are different. Nevertheless your omron device is now bound to the mac address of your pc and ubpm should work without mac address spoofing. <br>
 If you see the message "Could not enter key programming mode." or "Failure to programm new key." the pairing procedure did NOT work. Please see the troubleshooting section and if the problem persists please open an issue. <br>
@@ -51,6 +34,7 @@ Success is indicated by the message "Paired device successfully with new key".
 | flag  | alternative long flag  | always required | required on first connection | potentialy dangerous eeprom write | description | usage example | 
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | `-h`  | `--help` | - | - | - | display help for all possible flags, similar to this table | `python3 ./omblepy.py -h` |
+| `-b`  | `--bridgeDev` | ✔️ | ✔️ | - | sets the serial port where the esp32 bridge is connected | `python3 ./omblepy.py -b COM1 -d HEM-7322T -t` |
 | `-d`  | `--device` |✔️ | ✔️ | - | select which device libary will be loaded from [here](deviceSpecific) | `python3 ./omblepy.py -d HEM-7322T` |
 | `-p`  | `--pair` | ❌ | ✔️ | - | use to write pairing key on first connection with this pc | `python3 ./omblepy.py -d HEM-7322T -p` |
 | `-m`  | `--mac` |❌ | ❌ | - | select omron devices mac and skip bluetooth scan and device selection dialog | `python3 ./omblepy.py -d HEM-7322T -m 11:22:33:44:55:66` |
