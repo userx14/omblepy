@@ -28,14 +28,12 @@ class bluetoothTxRxHandler:
         self.rxEepromAddress            = None
         self.ser                        = ser
         
-    async def _waitForRxOrRetry(self, command, timeoutS = 1.0):
+    def _waitForRxOrRetry(self, command):
         command = "t ".encode()+base64.b64encode(command)
         ser.write(command)
-        print(f"command {command}")
         #check crc
         combinedRawRx   = ser.readline()
         combinedRawRx   = base64.b64decode(combinedRawRx[2:])
-        print(f"response {combinedRawRx}")
         self.packetSize = combinedRawRx[0]
         combinedRawRx   = combinedRawRx[:self.packetSize]          #cut extra bytes from the end
         xorCrc = 0
@@ -54,17 +52,17 @@ class bluetoothTxRxHandler:
             if(self.rxPacketType) == bytearray.fromhex("8f00"): #need special case for end of transmission packet, otherwise transmission error code is not accessible
                 self.rxDataBytes = combinedRawRx[6:7]
             else:
-                self.rxDataBytes    = combinedRawRx[6: 6 + expectedNumDataBytes]
+                self.rxDataBytes = combinedRawRx[6: 6 + expectedNumDataBytes]
     
     async def startTransmission(self):
         startDataReadout    = bytearray.fromhex("0800000000100018")
-        await self._waitForRxOrRetry(startDataReadout)
+        self._waitForRxOrRetry(startDataReadout)
         if(self.rxPacketType != bytearray.fromhex("8000")):
             raise ValueError("invalid response to data readout start")
                 
     async def endTransmission(self):
         stopDataReadout         = bytearray.fromhex("080f000000000007")
-        await self._waitForRxOrRetry(stopDataReadout)
+        self._waitForRxOrRetry(stopDataReadout)
         if(self.rxPacketType != bytearray.fromhex("8f00")):
             raise ValueError("invlid response to data readout end")
             return
@@ -85,7 +83,7 @@ class bluetoothTxRxHandler:
             xorCrc ^= byte
         dataWriteCommand += b'\x00'
         dataWriteCommand.append(xorCrc)
-        await self._waitForRxOrRetry(dataWriteCommand)
+        self._waitForRxOrRetry(dataWriteCommand)
         if(self.rxEepromAddress != address.to_bytes(2, 'big')):
             raise ValueError(f"recieved packet address {self.rxEepromAddress} does not match the written address {address.to_bytes(2, 'big')}")
         if(self.rxPacketType != bytearray.fromhex("81c0")):
@@ -102,7 +100,7 @@ class bluetoothTxRxHandler:
             xorCrc ^= byte
         dataReadCommand += b'\x00'
         dataReadCommand.append(xorCrc)
-        await self._waitForRxOrRetry(dataReadCommand)
+        self._waitForRxOrRetry(dataReadCommand)
         if(self.rxEepromAddress != address.to_bytes(2, 'big')):
             raise ValueError(f"revieved packet address {self.rxEepromAddress} does not match requested address {address.to_bytes(2, 'big')}")
         if(self.rxPacketType != bytearray.fromhex("8100")):
@@ -113,7 +111,7 @@ class bluetoothTxRxHandler:
         while(len(bytesArrayToWrite) != 0):
             nextSubblockSize = min(len(bytesArrayToWrite), btBlockSize)
             logger.debug(f"write to {hex(startAddress)} size {hex(nextSubblockSize)}")
-            await self._writeBlockEeprom(startAddress, bytesArrayToWrite[:nextSubblockSize])
+            self._writeBlockEeprom(startAddress, bytesArrayToWrite[:nextSubblockSize])
             bytesArrayToWrite = bytesArrayToWrite[nextSubblockSize:]
             startAddress += nextSubblockSize
         return
@@ -193,7 +191,7 @@ async def selectBLEdevices():
 
 
 
-async def main():
+def main():
     global bleClient
     global deviceSpecific    
     parser = argparse.ArgumentParser(description="python tool to read the records of omron blood pressure instruments")
@@ -203,7 +201,7 @@ async def main():
     parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6). If not specified, will scan for devices and display a selection dialog.")
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
-    parser.add_argument('-b', "--bridgeDev",  required="true", type=ascii,  help="device location of esp32 serial on system (com-port or /dev path)")
+    parser.add_argument('-b', "--bridgeDev",  required="true", type=ascii,  help="device location of esp32 serial on system (COM3 or /dev/ path)")
     args = parser.parse_args()
     
     #setup logging
@@ -231,9 +229,10 @@ async def main():
             return
     
     #start serial communication
-    global ser    
-    ser = serial.Serial("COM4", 115200, timeout=10)
+    global ser
     
+    ser = serial.Serial(args.bridgeDev.strip("'").strip('\"'), 115200, timeout=10)
+    ser.flush()
     #select device mac address
     validMacRegex = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")  
     if(args.mac is not None):
@@ -247,7 +246,7 @@ async def main():
         print(" -remove previous device pairings in your OS's bluetooth dialog")
         print(" -enable bluetooth on you omron device and use the specified mode (pairing or normal)")
         print(" -do not accept any pairing dialog until you selected your device in the following list\n")
-        bleAddr = await selectBLEdevices()
+        bleAddr = asyncio.run(selectBLEdevices())
     
     
     try:
@@ -261,8 +260,8 @@ async def main():
                 raise ValueError(f"pairing failed {response}")
             
             #this seems to be neccesary when the device has not been paired to any device
-            await bluetoothTxRxObj.startTransmission()
-            await bluetoothTxRxObj.endTransmission()
+            asyncio.run(bluetoothTxRxObj.startTransmission())
+            asyncio.run(bluetoothTxRxObj.endTransmission())
         else:
             logger.info("communication started")
             ser.write(f"c {bleAddr}".encode())
@@ -271,11 +270,11 @@ async def main():
                 raise ValueError(f"connection failed {response}")
             
             devSpecificDriver = deviceSpecific.deviceSpecificDriver()
-            allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync)
+            allRecs = asyncio.run(devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync))
             logger.info("communication finished")
             appendCsv(allRecs)
             saveUBPMJson(allRecs)
     finally:
         logger.info("unpair and disconnect")
 
-asyncio.run(main())
+main()

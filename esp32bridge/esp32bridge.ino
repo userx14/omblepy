@@ -26,7 +26,7 @@ const BLEUUID txChannels[] = {
 BLEClient*                    clientP = NULL;
 BLERemoteService*      remoteServiceP = NULL;
 static volatile int    rxFinishedFlag = 0;
- unsigned char         dataBase64[86] = {0x00};
+unsigned char         dataBase64[100] = {0x00};
 std::vector<uint8_t> defaultUnlockKey = {0xde, 0xad, 0xbe, 0xaf, 0x12, 0x34, 0x12, 0x34, 0xde, 0xad, 0xbe, 0xaf, 0x12, 0x34, 0x12, 0x34};
 uint8_t        rxChannelDataCache[64] = {0x00};
 uint8_t         rxChannelDoneState[4] = {0x00};
@@ -35,7 +35,7 @@ int             isFirstScanResultFlag = 0;
 void _enableRxChannelNotifyAndCallback(){
   for(int channelIdx = 0; channelIdx < sizeof(rxChannels)/sizeof(rxChannels[0]); channelIdx++){
     BLERemoteCharacteristic* characteristicP = remoteServiceP->getCharacteristic(rxChannels[channelIdx]);
-    characteristicP->registerForNotify(_callbackForRXchannels);
+    characteristicP->registerForNotify(_callbackForRXchannels); //there seems to be a bug in the library such that no more than 4 channels can have a callback set at the same time
     ESP_LOGI(LOG_TAG, "enable callback for %d", channelIdx);
   }
 }
@@ -71,10 +71,13 @@ void _callbackForRXchannels(BLERemoteCharacteristic* BLERemoteCharacteristicP, u
       }
     }
     ESP_LOGI(LOG_TAG, "rx finished");
-    rxFinishedFlag = 1;
+    
     encode_base64(rxChannelDataCache,packetSize,dataBase64);
+    for(int channelIdx = 0; channelIdx < 4; channelIdx++){
+      rxChannelDoneState[channelIdx] = 0;
+    }
+    rxFinishedFlag = 1; //must be the very last thing that is done, after the data got encoded
   }
-
 }
 
 class OmronBleSecCallbacks : public BLESecurityCallbacks {
@@ -129,7 +132,7 @@ class AdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       if(!isFirstScanResultFlag){
         isFirstScanResultFlag = 1;
       }else{
-        Serial.print(",");
+        Serial.printf(",");
       }
       Serial.printf("{\"mac\": \"%s\", \"name\": \"%s\", \"rssi\": \%d}", advertisedDevice.getAddress().toString().c_str(), advertisedDevice.getName().c_str(), advertisedDevice.getRSSI());
     }
@@ -162,7 +165,8 @@ void writeNewUnlockKey(BLEClient* clientP, std::vector<uint8_t> unlockKey){
   ESP_LOGI(LOG_TAG, "write unlock code");
   rxFinishedFlag = 0;
   memset(rxChannelDataCache,0,64);
-  unlockChannelCharacteristicP->writeValue({0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+  //unlockChannelCharacteristicP->writeValue({0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, false);
+  unlockChannelCharacteristicP->writeValue(0x02, false);
   while(!rxFinishedFlag){};
   if((rxChannelDataCache[0] != 0x82) || (rxChannelDataCache[1] != 0x00)){
     ESP_LOGE(LOG_TAG, "Could not enter key programming mode.");
@@ -171,11 +175,12 @@ void writeNewUnlockKey(BLEClient* clientP, std::vector<uint8_t> unlockKey){
   ESP_LOGI(LOG_TAG, "write default key");
   rxFinishedFlag = 0;
   memset(rxChannelDataCache,0,64);
-  unlockChannelCharacteristicP->writeValue(unlockKey.data(), unlockKey.size());
+  unlockChannelCharacteristicP->writeValue(unlockKey.data(), unlockKey.size(), 0);
   while(!rxFinishedFlag){};
   if((rxChannelDataCache[0] != 0x80) || (rxChannelDataCache[1] != 0x00)){
     ESP_LOGE(LOG_TAG, "Failed to programm new key.");
   }
+  unlockChannelCharacteristicP->registerForNotify(NULL);
   Serial.printf("p OK\n");
 }
 
@@ -203,11 +208,12 @@ void unlockWithUnlockKey(BLEClient* clientP, std::vector<uint8_t> unlockKey){
   unlockChannelCharacteristicP->registerForNotify(_callbackForUnlockChannel);
   ESP_LOGI(LOG_TAG, "write unlock code");
   rxFinishedFlag = 0;
-  unlockChannelCharacteristicP->writeValue(unlockKey.data(), unlockKey.size());
+  unlockChannelCharacteristicP->writeValue(unlockKey.data(), unlockKey.size(), 0);
   while(!rxFinishedFlag){};
   if((rxChannelDataCache[0] != 0x81) || (rxChannelDataCache[1] != 0x00)){
     ESP_LOGE(LOG_TAG, "Could not unlock with key.");
   }
+  unlockChannelCharacteristicP->registerForNotify(NULL);
   Serial.printf("c OK\n");
 }
 
@@ -216,7 +222,7 @@ void sendTx(uint8_t* txData){
   int remainingSize = txData[0];
   for(int channelIdx=0; channelIdx < 4; channelIdx++){
     BLERemoteCharacteristic* txCharacteristicP = remoteServiceP->getCharacteristic(txChannels[channelIdx]);
-    txCharacteristicP->writeValue(txData+channelIdx*16,remainingSize%16);
+    txCharacteristicP->writeValue(txData+channelIdx*16,remainingSize%16,0);
     remainingSize -= 16;
     if(remainingSize<=0){
       break;
@@ -238,8 +244,8 @@ void loop() {
       bleScanP->setActiveScan(true);
       bleScanP->setInterval(1000);
       bleScanP->setWindow(1000);
-      Serial.print("s [");
-      BLEScanResults foundDevices = bleScanP->start(1, false);
+      Serial.printf("s [");
+      BLEScanResults* foundDevicesP = bleScanP->start(1, false);
       Serial.printf("]\n");
       bleScanP->stop();
       bleScanP->clearResults();
@@ -276,12 +282,10 @@ void loop() {
       decode_base64((unsigned char*)command.substring(2).c_str(), txData);
       rxFinishedFlag = 0;
       memset(rxChannelDataCache, 0, 64);
-      memset(dataBase64,         0, 86);
+      memset(dataBase64,         0, 100);
       sendTx(txData);
       while(!rxFinishedFlag){};
-      ESP_LOGI(LOG_TAG,"data sent %d",dataBase64[0]);
-      ESP_LOGI(LOG_TAG,"data sent %d",dataBase64[1]);
-      Serial.printf("t %s", dataBase64);
+      Serial.printf("t %s\n", dataBase64);
     }
     break;
   }
