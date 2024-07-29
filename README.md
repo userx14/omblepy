@@ -1,48 +1,25 @@
 # Omblepy
 Cli tool to read records from Omron Bluetooth-LE measurement instruments
 
+## OS support
+| operating system | supported | install instruction / comment |
+|---|---|---|
+| win10 | ✅ | install <a href="https://www.python.org/downloads/">python</a> <br> set installer checkbox `add to path` <br> in cmd `pip install terminaltables bleak` |
+| win11 | ❌ | instructions of win10 work in principle, but win11 ble pairing dialog timeout is only 1 second. |
+| nixos23.05 | ✅ | in configuration.nix, set `hardware.bluetooth.enable = true;`. For temporary python shell `nix-shell -p python3.11 python311Packages.bleak python311Packages.terminaltables` |
+| debian11/12 | ❌ | unreliable, depends on bluez version if pairing will work. Install python and packages with `apt install python3.12` `pip3 install bleak terminaltables` |
+| mac os | ❌ | the used bluetooth library bleak is missing the pairing feature on osx |
+| all os + esp32 | ✅ | see under-development [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge). |
 
-## Windows 7 - 10
-First install latest python 3.x release.
-Use the <a href="https://www.python.org/downloads/">official installer</a> and enable the "add to path option" in the installer. <br>
-Then install the required libraries by opening a console window and executing the two commands:
-| command  | library name | tested with library version |module use |
-| -- | -- | -- | -- |
-| `pip install bleak` | <a href="https://pypi.org/project/bleak/">bleak</a> | v0.18.1 | bluetooth-le communication |
-| `pip install terminaltables` | <a href="https://pypi.org/project/terminaltables/">terminaltables</a> | v3.1.1 | formated command line output table for scanned devices |
-
-## Windows 11
-Not supported due to extremly short bluetooth pairing timeout.
-Does work, but bluetooth pairing required on each connection is unrealiable, dialog box must be confirmed in less than 1 second. 
-Installation in principle equivalent to Win 10, but can't recommend using it at the moment.
-Consider using the under-development [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge), that bypasses the os bluetooth stack completely.
-
-## Linux setup
-Only specific versions of the bluetooth are working, consider using the under-development [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge).
-Install python ( ≥ version 3.8) and the two required libraries:
-```
-apt install python3.10
-pip3 install bleak
-pip3 install terminaltables
-```
-
-## Windows Usage
+## Usage
 For the first time pairing process you need to use the -p flag and enable pairing mode by holding the bluetooth button until you see the blinking -P- in the display: 
 ```
 python ./omblepy.py -p -d HEM-7322T
 ```
-
+Linux might start python2.X, use the correct command to launch a python3.X interpreter on your machine e.g. `python3`.
 After the first connection the -p flag can be omitted, even when executing omblepy on a different device:
 ```
 python ./omblepy.py -d HEM-7322T
-```
-## Linux Usage
-(same as Windows usage, but python command is different)
-```
-python3 ./omblepy.py -p -d HEM-7322T
-```
-```
-python3 ./omblepy.py -d HEM-7322T
 ```
 ### Pairing for UBPM
 If you preform this pairing for <a href="https://codeberg.org/LazyT/ubpm/">ubpm</a>, just use one of the supported devices (e.g. `-d HEM-7322T`), even if your device model is different. As far as I know the pairing process is simmilar for all omron devices. If you use an unsupported device it is expected that the pairing will work and that the -P- on the display of the omron device will change to a small square. But the tool will crash futher in the readout, because the data format / readout commands for the stored records are different. Nevertheless your omron device is now bound to the mac address of your pc and ubpm should work without mac address spoofing. <br>
@@ -87,9 +64,6 @@ since the calibration data for the pressure sensor is likeley also stored there.
 - On the devices I had avilable for testing, win10 did always work, while ubuntu didn't work on some versions.
 - If the pairing works and there is an error in the readout use the `--loggerDebug` flag and please open an issue.
 - Windows specific
-  - Windows 11 has an extremly short bluetooth pairing timeout.
-    You have to open the bluetooth settings and instantly confirm the pairing.
-    It works but is very unreliable, better consider Widnwos 11 as not supported right now.
   - Do not use the CSR harmony stack (CSR 8510 based usb dongles), it is incompatible.
 - Linux specific
   - Preferably test on a device with only one bluetooth adapter connected.
