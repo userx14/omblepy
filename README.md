@@ -11,6 +11,7 @@ This version bypasses the os bluetooth stacl by offloading the communication to 
 - need esp32 board connected to pc for operation
 - additional one time setup work to programm the esp32 with arduino IDE
 - less tested in general, write commands not tested
+- usb serial on linux requires user to be added to group (dialout) or other changes to permissions in order to access /dev/ttyUSB0
 
 ## esp32 setup in arduino ide 2.0
 1) add esp32 as additional board manager url
@@ -28,6 +29,7 @@ Then install the required libraries by opening a console window and executing th
 | `pip install pyserial` | <a href="https://pypi.org/project/pyserial/">pyserial</a> | v3.5 | serial communication |
 | `pip install terminaltables` | <a href="https://pypi.org/project/terminaltables/">terminaltables</a> | v3.1.1 | formated command line output table for scanned devices |
 
+On linux make sure the user has access to serial tty in /dev.
 
 ## Usage
 For the first time pairing process you need to use the -p flag and enable pairing mode by holding the bluetooth button until you see the blinking -P- in the display: 
