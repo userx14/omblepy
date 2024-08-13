@@ -1,6 +1,6 @@
 # Omblepy-bridge
 Cli tool to read records from Omron Bluetooth-LE measurement instruments.
-This version bypasses the os bluetooth stacl by offloading the communication to an esp32 connected over usb serial.
+This version bypasses the os bluetooth stack by offloading the communication to an esp32 connected over usb serial.
 
 ## Advantages of this version
 - os bluetooth stack not used, bypasses any bugs in os bluetooth implementation
@@ -36,7 +36,7 @@ For the first time pairing process you need to use the -p flag and enable pairin
 ```
 python ./omblepy_bridge.py -b COM3 -p -d HEM-7322T
 ```
-Check arduino ide or device manager for correct COMX port on windows. On linux lilely `-b /dev/ttyUSB0`.
+Check arduino ide or device manager for correct COMX port on windows. On linux likely `-b /dev/ttyUSB0`.
 
 After the first connection the -p flag can be omitted:
 ```
