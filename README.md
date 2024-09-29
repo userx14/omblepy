@@ -1,7 +1,9 @@
 # Omblepy
+
 Cli tool to read records from Omron Bluetooth-LE measurement instruments
 
 ## OS support
+
 | operating system / hardware | supported | install instruction / comment |
 |---|---|---|
 | win10 | ✅ | install <a href="https://www.python.org/downloads/">python</a>, enable installer checkbox `add to path` <br> in cmd `pip install terminaltables bleak` |
@@ -13,7 +15,7 @@ Cli tool to read records from Omron Bluetooth-LE measurement instruments
 | all os <br>+ esp32 | ✅ | see under-development [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge). |
 
 ## Usage
-For the first time pairing process you need to use the -p flag and enable pairing mode by holding the bluetooth button until you see the blinking -P- in the display: 
+For the first time pairing process you need to use the -p flag and enable pairing mode by holding the bluetooth button until you see the blinking -P- in the display:
 ```
 python ./omblepy.py -p -d HEM-7322T
 ```
@@ -22,27 +24,29 @@ After the first connection the -p flag can be omitted, even when executing omble
 ```
 python ./omblepy.py -d HEM-7322T
 ```
-### Pairing for UBPM
-If you preform this pairing for <a href="https://codeberg.org/LazyT/ubpm/">ubpm</a>, just use one of the supported devices (e.g. `-d HEM-7322T`), even if your device model is different. As far as I know the pairing process is simmilar for all omron devices. If you use an unsupported device it is expected that the pairing will work and that the -P- on the display of the omron device will change to a small square. But the tool will crash futher in the readout, because the data format / readout commands for the stored records are different. Nevertheless your omron device is now bound to the mac address of your pc and ubpm should work without mac address spoofing. <br>
-If you see the message "Could not enter key programming mode." or "Failure to programm new key." the pairing procedure did NOT work. Please see the troubleshooting section and if the problem persists please open an issue. <br>
+### Pairing for Universal Blood Pressure Manager (UBPM)
+
+If you preform this pairing for <a href="https://codeberg.org/LazyT/ubpm/">Universal Blood Pressure Manager (UBPM)</a>, just use one of the supported devices (e.g. `-d HEM-7322T`), even if your device model is different. As far as I know the pairing process is similar for all omron devices. If you use an unsupported device it is expected that the pairing will work and that the `-P- `on the display of the omron device will change to a small square. But the tool will crash further in the readout, because the data format / readout commands for the stored records are different. Nevertheless your omron device is now bound to the mac address of your pc and UBPM should work without mac address spoofing. <br>
+If you see the message "Could not enter key programming mode." or "Failure to program new key." the pairing procedure did NOT work. Please see the troubleshooting section and if the problem persists please open an issue. <br>
 Success is indicated by the message "Paired device successfully with new key".
 
 ### Flags table
-| flag  | alternative long flag  | always required | required on first connection | potentialy dangerous eeprom write | description | usage example | 
+| flag  | alternative long flag  | always required | required on first connection | potentially dangerous eeprom write | description | usage example |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | `-h`  | `--help` | - | - | - | display help for all possible flags, similar to this table | `python3 ./omblepy.py -h` |
-| `-d`  | `--device` |✔️ | ✔️ | - | select which device libary will be loaded from [here](deviceSpecific) | `python3 ./omblepy.py -d HEM-7322T` |
+| `-d`  | `--device` |✔️ | ✔️ | - | select which device library will be loaded from [here](deviceSpecific) | `python3 ./omblepy.py -d HEM-7322T` |
 | `-p`  | `--pair` | ❌ | ✔️ | - | use to write pairing key on first connection with this pc | `python3 ./omblepy.py -d HEM-7322T -p` |
 | `-m`  | `--mac` |❌ | ❌ | - | select omron devices mac and skip bluetooth scan and device selection dialog | `python3 ./omblepy.py -d HEM-7322T -m 11:22:33:44:55:66` |
 | `-n`  | `--newRecOnly` | ❌ | ❌ | ❗ | instead of downloading all records, check and update the "new records couter" and only transfer new records | `python3 ./omblepy.py -d HEM-7322T -n` |
 | `-t`  | `--timeSync` | ❌ | ❌ | ❗ | synchronize omron internal clock with system time | `python3 ./omblepy.py -d HEM-7322T -t` |
 |  |`--loggerDebug`  | ❌ | ❌ | - | displays every ingoing and outgoing data for debugging purposes | `python3 ./omblepy.py -d HEM-7322T --loggerDebug` |
 
-Potentialy dangerous, referes to the possibility to mess up the calibration data for the pressure sensor, which is likely stored in the eeprom in the settings region.<br>
+Potentially dangerous, refers to the possibility to mess up the calibration data for the pressure sensor, which is likely stored in the eeprom in the settings region.<br>
 This is most important when you are trying to add support for a new device.
 
 ## Omron device support matrix
-| device model | sold under name |  pairing | basic data readout | new record counter | time sync | contributors / testers / help by | 
+
+| device model | sold under name |  pairing | basic data readout | new record counter | time sync | contributors / testers / help by |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | [HEM-7150T](deviceSpecific/hem-7150t.py) | BP7250  | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14  |
 | [HEM-7155T](deviceSpecific/hem-7155t.py) | M400 / M4		      	            | ✔️ | ✔️ | ✔️ | ✔️ | dromie, RobertWojtowicz   |
@@ -61,13 +65,13 @@ since the calibration data for the pressure sensor is likeley also stored there.
 ## Troubleshooting
 - Remove the pairing with the omron device using your os bluetooth dialog.
 - Use a bluetooth chipset/dongle which supports at least bluetooth 4.2, better 5.0
-- On the devices I had avilable for testing, win10 did always work, while ubuntu didn't work on some versions.
+- On the devices I had available for testing, win10 did always work, while ubuntu didn't work on some versions.
 - If the pairing works and there is an error in the readout use the `--loggerDebug` flag and please open an issue.
 - Windows specific
   - Do not use the CSR harmony stack (CSR 8510 based usb dongles), it is incompatible.
 - Linux specific
   - Preferably test on a device with only one bluetooth adapter connected.
-  - on non gui systems open bluetoothctl in a second multiplexed terminal for the bluetooth pairing to work,
+  - on non gui systems open `bluetoothctl` in a second multiplexed terminal for the bluetooth pairing to work,
     for an automated solution see [this issue](https://github.com/userx14/omblepy/issues/25#issuecomment-2175493249)
   - Restart the bluetooth stack `sudo systemctl restart bluetooth`.
   - Delete the bluetooth adapter cache with `sudo rm -r /var/lib/bluetooth/$yourBtCardMacAddress`.
@@ -75,13 +79,12 @@ since the calibration data for the pressure sensor is likeley also stored there.
   - When you are on ubuntu, install blueman, since it seems to be designed with multiple adapters in mind.
   - Try other versions of bluez, for me versions around bluez 5.55 worked best.
 
-
-## Documentation 
+## Documentation
 The general communication is handled in the first 250 lines of [omblepy.py](./omblepy.py).
 
 ### command types (bytes 1-3 of header):
 PC -> omron device
- command type bytes | function | packet size 
+ command type bytes | function | packet size
  --- | --- | ---
 `0000` | start of transmission / read device id from eeprom | 0x08 bytes with checksum
 `0100` | read data from eeprom | 0x08 bytes with checksum
@@ -107,8 +110,8 @@ messagelength | command type      | start address | readsize | padding     | crc
 A huge thank you goes to LazyT and his <a href=https://codeberg.org/LazyT/ubpm>UBPM project</a>
 which provided extremely usefull insight how the reception with multiple bluetooth channels works.
 
-The <a href=https://github.com/RobertWojtowicz/export2garmin>export2garmin</a> project 
+The <a href=https://github.com/RobertWojtowicz/export2garmin>export2garmin</a> project
 can be used to import the data from the omron device into Garmin Connect.
 
-The USB communcation of selected omron medical equipment is implemented by <a href=https://github.com/openyou/libomron>libomron</a> 
-and shares some simmilarities with the bluetooth communication.
+The USB communication of selected omron medical equipment is implemented by <a href=https://github.com/openyou/libomron>libomron</a>
+and shares some similarities with the bluetooth communication.
