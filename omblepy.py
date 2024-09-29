@@ -39,7 +39,7 @@ class bluetoothTxRxHandler:
                             ]
     deviceDataRxChannelIntHandles = [0x360, 0x370, 0x380, 0x390]
     deviceUnlock_UUID         = "b305b680-aee7-11e1-a730-0002a5d5c51b"
-    
+
     def __init__(self, pairing = False):
         self.currentRxNotifyStateFlag   = False
         self.rxPacketType               = None
@@ -47,35 +47,35 @@ class bluetoothTxRxHandler:
         self.rxDataBytes                = None
         self.rxFinishedFlag             = False
         self.rxRawChannelBuffer         = [None] * 4 #a buffer for each channel
-        
+
     async def _enableRxChannelNotifyAndCallback(self):
         if(self.currentRxNotifyStateFlag != True):
             for rxChannelUUID in self.deviceRxChannelUUIDs:
                 await bleClient.start_notify(rxChannelUUID, self._callbackForRxChannels)
             self.currentRxNotifyStateFlag = True
-                
+
     async def _disableRxChannelNotifyAndCallback(self):
         if(self.currentRxNotifyStateFlag != False):
             for rxChannelUUID in self.deviceRxChannelUUIDs:
                 await bleClient.stop_notify(rxChannelUUID)
             self.currentRxNotifyStateFlag = False
-                
+
     def _callbackForRxChannels(self, BleakGATTChar, rxBytes):
         if type(BleakGATTChar) is int:
             rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar)
         else:
             rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar.handle)
         self.rxRawChannelBuffer[rxChannelId] = rxBytes
-        
+
         logger.debug(f"rx ch{rxChannelId} < {convertByteArrayToHexString(rxBytes)}")
         if self.rxRawChannelBuffer[0]:                               #if there is data present in the first rx buffer
             packetSize       = self.rxRawChannelBuffer[0][0]
             requiredChannels = range((packetSize + 15) // 16)
             #are all required channels already recieved
-            for channelIdx in requiredChannels: 
+            for channelIdx in requiredChannels:
                 if self.rxRawChannelBuffer[channelIdx] is None:         #if one of the required channels is empty wait for more packets to arrive
                     return
-           
+
             #check crc
             combinedRawRx = bytearray()
             for channelIdx in requiredChannels:
@@ -102,7 +102,7 @@ class bluetoothTxRxHandler:
             self.rxFinishedFlag     = True
             return
         return
-    
+
     async def _waitForRxOrRetry(self, command, timeoutS = 1.0):
         self.rxFinishedFlag = False
         retries = 0
@@ -113,7 +113,7 @@ class bluetoothTxRxHandler:
                 logger.debug(f"tx ch{channelIdx} > {convertByteArrayToHexString(commandCopy[:16])}")
                 await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[channelIdx], commandCopy[:16])
                 commandCopy = commandCopy[16:]
-            
+
             currentTimeout = timeoutS
             while(self.rxFinishedFlag == False):
                 await asyncio.sleep(0.1)
@@ -127,14 +127,14 @@ class bluetoothTxRxHandler:
             if(retries >= 5):
                 ValueError("Same transmission failed 5 times, abort")
                 return
-    
+
     async def startTransmission(self):
         await self._enableRxChannelNotifyAndCallback()
         startDataReadout    = bytearray.fromhex("0800000000100018")
         await self._waitForRxOrRetry(startDataReadout)
         if(self.rxPacketType != bytearray.fromhex("8000")):
             raise ValueError("invalid response to data readout start")
-                
+
     async def endTransmission(self):
         stopDataReadout         = bytearray.fromhex("080f000000000007")
         await self._waitForRxOrRetry(stopDataReadout)
@@ -145,11 +145,11 @@ class bluetoothTxRxHandler:
             raise ValueError(f"Device reported error status code {self.rxDataBytes[0]} while sending endTransmission command.")
             return
         await self._disableRxChannelNotifyAndCallback()
-    
+
     async def _writeBlockEeprom(self, address, dataByteArray):
         dataWriteCommand = bytearray()
         dataWriteCommand += (len(dataByteArray) + 8).to_bytes(1, 'big') #total packet size with 6byte header and 2byte crc
-        dataWriteCommand += bytearray.fromhex("01c0")  
+        dataWriteCommand += bytearray.fromhex("01c0")
         dataWriteCommand += address.to_bytes(2, 'big')
         dataWriteCommand += len(dataByteArray).to_bytes(1, 'big')
         dataWriteCommand += dataByteArray
@@ -165,11 +165,11 @@ class bluetoothTxRxHandler:
         if(self.rxPacketType != bytearray.fromhex("81c0")):
             raise ValueError("Invalid packet type in eeprom write")
         return
-    
+
     async def _readBlockEeprom(self, address, blocksize):
-        dataReadCommand = bytearray.fromhex("080100")  
+        dataReadCommand = bytearray.fromhex("080100")
         dataReadCommand += address.to_bytes(2, 'big')
-        dataReadCommand += blocksize.to_bytes(1, 'big')  
+        dataReadCommand += blocksize.to_bytes(1, 'big')
         #calculate and append crc
         xorCrc = 0
         for byte in dataReadCommand:
@@ -182,7 +182,7 @@ class bluetoothTxRxHandler:
         if(self.rxPacketType != bytearray.fromhex("8100")):
             raise ValueError("Invalid packet type in eeprom read")
         return self.rxDataBytes
-    
+
     async def writeContinuousEepromData(self, startAddress, bytesArrayToWrite, btBlockSize = 0x08):
         while(len(bytesArrayToWrite) != 0):
             nextSubblockSize = min(len(bytesArrayToWrite), btBlockSize)
@@ -191,7 +191,7 @@ class bluetoothTxRxHandler:
             bytesArrayToWrite = bytesArrayToWrite[nextSubblockSize:]
             startAddress += nextSubblockSize
         return
-    
+
     async def readContinuousEepromData(self, startAddress, bytesToRead, btBlockSize = 0x10):
         eepromBytesData = bytearray()
         while(bytesToRead != 0):
@@ -201,12 +201,12 @@ class bluetoothTxRxHandler:
             startAddress    += nextSubblockSize
             bytesToRead     -= nextSubblockSize
         return eepromBytesData
-        
+
     def _callbackForUnlockChannel(self, UUID_or_intHandle, rxBytes):
         self.rxDataBytes = rxBytes
         self.rxFinishedFlag = True
         return
-    
+
     async def writeNewUnlockKey(self, newKeyByteArray = examplePairingKey):
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
@@ -221,20 +221,20 @@ class bluetoothTxRxHandler:
         if(deviceResponse[:2] != bytearray.fromhex("8200")):
             raise ValueError(f"Could not enter key programming mode. Has the device been started in pairing mode? Got response: {deviceResponse}")
             return
-        #programm new key
+        #program new key
         self.rxFinishedFlag = False
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x00' + newKeyByteArray, response=True)
         while(self.rxFinishedFlag == False):
             await asyncio.sleep(0.1)
         deviceResponse = self.rxDataBytes
         if(deviceResponse[:2] != bytearray.fromhex("8000")):
-            raise ValueError(f"Failure to programm new key. Response: {deviceResponse}")
+            raise ValueError(f"Failure to program new key. Response: {deviceResponse}")
             return
         await bleClient.stop_notify(self.deviceUnlock_UUID)
         logger.info(f"Paired device successfully with new key {newKeyByteArray}.")
-        logger.info("From now on you can connect ommit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
+        logger.info("From now on you can connect omit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
         return
-        
+
     async def unlockWithUnlockKey(self, keyByteArray = examplePairingKey):
         await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
         self.rxFinishedFlag = False
@@ -307,7 +307,7 @@ async def selectBLEdevices():
 
 async def main():
     global bleClient
-    global deviceSpecific    
+    global deviceSpecific
     parser = argparse.ArgumentParser(description="python tool to read the records of omron blood pressure instruments")
     parser.add_argument('-d', "--device",     required="true", type=ascii,  help="Device name (e.g. HEM-7322T-D).")
     parser.add_argument("--loggerDebug",      action="store_true",          help="Enable verbose logger output")
@@ -316,7 +316,7 @@ async def main():
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
     args = parser.parse_args()
-    
+
     #setup logging
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -326,7 +326,7 @@ async def main():
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    
+
     #import device specific module
     if(not args.pair and not args.device):
         raise ValueError("When not in pairing mode, please specify your device type name with -d or --device")
@@ -340,9 +340,9 @@ async def main():
         except ImportError:
             raise ValueError("the device is no supported yet, you can help by contributing :)")
             return
-    
+
     #select device mac address
-    validMacRegex = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")  
+    validMacRegex = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
     if(args.mac is not None):
         btmac = args.mac.strip("'").strip('\"') #strip quotes around arg
         if(validMacRegex.match(btmac) is None):
@@ -355,7 +355,7 @@ async def main():
         print(" -enable bluetooth on you omron device and use the specified mode (pairing or normal)")
         print(" -do not accept any pairing dialog until you selected your device in the following list\n")
         bleAddr = await selectBLEdevices()
-    
+
     bleClient = bleak.BleakClient(bleAddr)
     try:
         logger.info(f"Attempt connecting to {bleAddr}.")
@@ -364,14 +364,14 @@ async def main():
         await bleClient.pair(protection_level = 2)
         #verify that the device is an omron device by checking presence of certain bluetooth services
         if parentService_UUID not in [service.uuid for service in bleClient.services]:
-            raise OSError("""Some required bluetooth attributes not found on this ble device. 
-                             This means that either, you connected to a wrong device, 
+            raise OSError("""Some required bluetooth attributes not found on this ble device.
+                             This means that either, you connected to a wrong device,
                              or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")
             return
         bluetoothTxRxObj = bluetoothTxRxHandler()
         if(args.pair):
             await bluetoothTxRxObj.writeNewUnlockKey()
-            #this seems to be neccesary when the device has not been paired to any device
+            #this seems to be necessary when the device has not been paired to any device
             await bluetoothTxRxObj.startTransmission()
             await bluetoothTxRxObj.endTransmission()
         else:
@@ -383,7 +383,13 @@ async def main():
             saveUBPMJson(allRecs)
     finally:
         logger.info("unpair and disconnect")
-        await bleClient.unpair()
-        await bleClient.disconnect()
+        if bleClient.is_connected:
+            await bleClient.unpair()
+            try:
+                await bleClient.disconnect()
+            except AssertionError as e:
+                logger.error("Bleak AssertionError during disconnect. This usually happens when using the bluezdbus adapter.")
+                logger.error("You can find the upstream issue at: https://github.com/hbldh/bleak/issues/641")
+                logger.error(f"AssertionError details: {e}")
 
 asyncio.run(main())
