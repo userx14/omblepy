@@ -290,10 +290,10 @@ def saveUBPMJson(allRecords):
                                 'sys': int(rec['sys']), 'dia': int(rec['dia']), 'bpm': int(rec['bpm']), 'ihb': int(rec['ihb']), 'mov': int(rec['mov']) })
     f.write_text(json.dumps(UBPM, indent=4, sort_keys=True, default=str))
 
-async def selectBLEdevices():
+async def selectBLEdevices(adapter):
     print("Select your Omron device from the list below...")
     while(True):
-        devices = await bleak.BleakScanner.discover(return_adv=True)
+        devices = await bleak.BleakScanner.discover(return_adv=True, adapter=adapter)
         devices = list(sorted(devices.items(), key = lambda x: x[1][1].rssi, reverse=True))
         tableEntries = []
         tableEntries.append(["ID", "MAC", "NAME", "RSSI"])
@@ -309,12 +309,13 @@ async def main():
     global bleClient
     global deviceSpecific
     parser = argparse.ArgumentParser(description="python tool to read the records of omron blood pressure instruments")
-    parser.add_argument('-d', "--device",     required="true", type=ascii,  help="Device name (e.g. HEM-7322T-D).")
+    parser.add_argument('-d', "--device",     required="true",  type=ascii, help="Device name (e.g. HEM-7322T-D).")
     parser.add_argument("--loggerDebug",      action="store_true",          help="Enable verbose logger output")
     parser.add_argument("-p", "--pair",       action="store_true",          help="Programm the pairing key into the device. Needs to be done only once.")
     parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6). If not specified, will scan for devices and display a selection dialog.")
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
+    parser.add_argument("--adapter",                            type=ascii, help="overwrite default bluetooth adapter (linux only).")
     args = parser.parse_args()
 
     #setup logging
@@ -354,9 +355,9 @@ async def main():
         print(" -remove previous device pairings in your OS's bluetooth dialog")
         print(" -enable bluetooth on you omron device and use the specified mode (pairing or normal)")
         print(" -do not accept any pairing dialog until you selected your device in the following list\n")
-        bleAddr = await selectBLEdevices()
-
-    bleClient = bleak.BleakClient(bleAddr)
+        bleAddr = await selectBLEdevices(args.adapter)
+    
+    bleClient = bleak.BleakClient(bleAddr, adapter=args.adapter)
     try:
         logger.info(f"Attempt connecting to {bleAddr}.")
         await bleClient.connect()

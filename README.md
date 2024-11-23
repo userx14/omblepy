@@ -40,6 +40,7 @@ Success is indicated by the message "Paired device successfully with new key".
 | `-n`  | `--newRecOnly` | ❌ | ❌ | ❗ | instead of downloading all records, check and update the "new records couter" and only transfer new records | `python3 ./omblepy.py -d HEM-7322T -n` |
 | `-t`  | `--timeSync` | ❌ | ❌ | ❗ | synchronize omron internal clock with system time | `python3 ./omblepy.py -d HEM-7322T -t` |
 |  |`--loggerDebug`  | ❌ | ❌ | - | displays every ingoing and outgoing data for debugging purposes | `python3 ./omblepy.py -d HEM-7322T --loggerDebug` |
+|  |`--adapter`      | ❌ | ❌ | - | overwrite default bluetooth hci adapter on linux | `python3 ./omblepy.py -d HEM-7322T --adapter hci0` |
 
 Potentially dangerous, refers to the possibility to mess up the calibration data for the pressure sensor, which is likely stored in the eeprom in the settings region.<br>
 This is most important when you are trying to add support for a new device.
