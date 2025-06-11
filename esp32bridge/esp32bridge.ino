@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
@@ -32,24 +33,6 @@ uint8_t        rxChannelDataCache[64] = {0x00};
 uint8_t         rxChannelDoneState[4] = {0x00};
 int             isFirstScanResultFlag = 0;
 
-void _enableRxChannelNotifyAndCallback(){
-  for(int channelIdx = 0; channelIdx < sizeof(rxChannels)/sizeof(rxChannels[0]); channelIdx++){
-    BLERemoteCharacteristic* characteristicP = remoteServiceP->getCharacteristic(rxChannels[channelIdx]);
-    characteristicP->registerForNotify(_callbackForRXchannels); //there seems to be a bug in the library such that no more than 4 channels can have a callback set at the same time
-    ESP_LOGI(LOG_TAG, "enable callback for %d", channelIdx);
-  }
-}
-
-void _disableRxChannelNotifyAndCallback(){
-  for(int channelIdx = 0; channelIdx < sizeof(rxChannels)/sizeof(rxChannels[0]); channelIdx++){
-    BLERemoteCharacteristic* characteristicP = remoteServiceP->getCharacteristic(rxChannels[channelIdx]);
-    characteristicP->registerForNotify(NULL);
-  }
-}
-void _callbackForUnlockChannel(BLERemoteCharacteristic* BLERemoteCharacteristicP, uint8_t* dataP, size_t length, bool isNotify) {
-    memcpy(rxChannelDataCache,dataP,length);
-    rxFinishedFlag = 1;
-}
 void _callbackForRXchannels(BLERemoteCharacteristic* BLERemoteCharacteristicP, uint8_t* dataP, size_t length, bool isNotify) {
   ESP_LOGI(LOG_TAG, "callbackForRx %s",BLERemoteCharacteristicP->getUUID().toString().c_str());
   int characteristicIdx = 0;
@@ -78,6 +61,33 @@ void _callbackForRXchannels(BLERemoteCharacteristic* BLERemoteCharacteristicP, u
     }
     rxFinishedFlag = 1; //must be the very last thing that is done, after the data got encoded
   }
+}
+void _enableRxChannelNotifyAndCallback() {
+  for (int channelIdx = 0;
+       channelIdx < sizeof(rxChannels) / sizeof(rxChannels[0]); channelIdx++) {
+    BLERemoteCharacteristic *characteristicP =
+        remoteServiceP->getCharacteristic(rxChannels[channelIdx]);
+    characteristicP->registerForNotify(
+        _callbackForRXchannels); // there seems to be a bug in the library such
+                                 // that no more than 4 channels can have a
+                                 // callback set at the same time
+    ESP_LOGI(LOG_TAG, "enable callback for %d", channelIdx);
+  }
+}
+
+void _disableRxChannelNotifyAndCallback() {
+  for (int channelIdx = 0;
+       channelIdx < sizeof(rxChannels) / sizeof(rxChannels[0]); channelIdx++) {
+    BLERemoteCharacteristic *characteristicP =
+        remoteServiceP->getCharacteristic(rxChannels[channelIdx]);
+    characteristicP->registerForNotify(NULL);
+  }
+}
+void _callbackForUnlockChannel(
+    BLERemoteCharacteristic *BLERemoteCharacteristicP, uint8_t *dataP,
+    size_t length, bool isNotify) {
+  memcpy(rxChannelDataCache, dataP, length);
+  rxFinishedFlag = 1;
 }
 
 class OmronBleSecCallbacks : public BLESecurityCallbacks {
