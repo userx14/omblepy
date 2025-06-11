@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
@@ -32,24 +33,6 @@ uint8_t        rxChannelDataCache[64] = {0x00};
 uint8_t         rxChannelDoneState[4] = {0x00};
 int             isFirstScanResultFlag = 0;
 
-void _enableRxChannelNotifyAndCallback(){
-  for(int channelIdx = 0; channelIdx < sizeof(rxChannels)/sizeof(rxChannels[0]); channelIdx++){
-    BLERemoteCharacteristic* characteristicP = remoteServiceP->getCharacteristic(rxChannels[channelIdx]);
-    characteristicP->registerForNotify(_callbackForRXchannels); //there seems to be a bug in the library such that no more than 4 channels can have a callback set at the same time
-    ESP_LOGI(LOG_TAG, "enable callback for %d", channelIdx);
-  }
-}
-
-void _disableRxChannelNotifyAndCallback(){
-  for(int channelIdx = 0; channelIdx < sizeof(rxChannels)/sizeof(rxChannels[0]); channelIdx++){
-    BLERemoteCharacteristic* characteristicP = remoteServiceP->getCharacteristic(rxChannels[channelIdx]);
-    characteristicP->registerForNotify(NULL);
-  }
-}
-void _callbackForUnlockChannel(BLERemoteCharacteristic* BLERemoteCharacteristicP, uint8_t* dataP, size_t length, bool isNotify) {
-    memcpy(rxChannelDataCache,dataP,length);
-    rxFinishedFlag = 1;
-}
 void _callbackForRXchannels(BLERemoteCharacteristic* BLERemoteCharacteristicP, uint8_t* dataP, size_t length, bool isNotify) {
   ESP_LOGI(LOG_TAG, "callbackForRx %s",BLERemoteCharacteristicP->getUUID().toString().c_str());
   int characteristicIdx = 0;
@@ -78,6 +61,33 @@ void _callbackForRXchannels(BLERemoteCharacteristic* BLERemoteCharacteristicP, u
     }
     rxFinishedFlag = 1; //must be the very last thing that is done, after the data got encoded
   }
+}
+void _enableRxChannelNotifyAndCallback() {
+  for (int channelIdx = 0;
+       channelIdx < sizeof(rxChannels) / sizeof(rxChannels[0]); channelIdx++) {
+    BLERemoteCharacteristic *characteristicP =
+        remoteServiceP->getCharacteristic(rxChannels[channelIdx]);
+    characteristicP->registerForNotify(
+        _callbackForRXchannels); // there seems to be a bug in the library such
+                                 // that no more than 4 channels can have a
+                                 // callback set at the same time
+    ESP_LOGI(LOG_TAG, "enable callback for %d", channelIdx);
+  }
+}
+
+void _disableRxChannelNotifyAndCallback() {
+  for (int channelIdx = 0;
+       channelIdx < sizeof(rxChannels) / sizeof(rxChannels[0]); channelIdx++) {
+    BLERemoteCharacteristic *characteristicP =
+        remoteServiceP->getCharacteristic(rxChannels[channelIdx]);
+    characteristicP->registerForNotify(NULL);
+  }
+}
+void _callbackForUnlockChannel(
+    BLERemoteCharacteristic *BLERemoteCharacteristicP, uint8_t *dataP,
+    size_t length, bool isNotify) {
+  memcpy(rxChannelDataCache, dataP, length);
+  rxFinishedFlag = 1;
 }
 
 class OmronBleSecCallbacks : public BLESecurityCallbacks {
@@ -110,6 +120,22 @@ class OmronBleSecCallbacks : public BLESecurityCallbacks {
   }
 };
 
+class AdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
+  void onResult(BLEAdvertisedDevice advertisedDevice) {
+    if (!isFirstScanResultFlag) {
+      isFirstScanResultFlag = 1;
+    } else {
+      Serial.printf(",");
+    }
+    Serial.printf("{\"mac\": \"%s\", \"name\": \"%s\", \"rssi\": %d}",
+                  advertisedDevice.getAddress().toString().c_str(),
+                  advertisedDevice.getName().c_str(),
+                  advertisedDevice.getRSSI());
+  }
+};
+
+AdvertisedDeviceCallbacks scanCallbacks{};
+
 void setup() {
   Serial.begin(115200);
   ESP_LOGI(LOG_TAG, "ESP32 bridge online");
@@ -124,21 +150,12 @@ void setup() {
   securityP->setAuthenticationMode(ESP_LE_AUTH_BOND); //also available ESP_LE_AUTH_NO_BOND, ESP_LE_AUTH_REQ_SC_MITM, ESP_LE_AUTH_BOND, ESP_LE_AUTH_NO_BOND
   securityP->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
   securityP->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-  
+  BLEScan* bleScanP = BLEDevice::getScan();
+  bleScanP->setAdvertisedDeviceCallbacks(&scanCallbacks);
+  bleScanP->setActiveScan(true);
+  bleScanP->setInterval(1000);
+  bleScanP->setWindow(1000);
 }
-
-class AdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
-    void onResult(BLEAdvertisedDevice advertisedDevice) {
-      if(!isFirstScanResultFlag){
-        isFirstScanResultFlag = 1;
-      }else{
-        Serial.printf(",");
-      }
-      Serial.printf("{\"mac\": \"%s\", \"name\": \"%s\", \"rssi\": \%d}", advertisedDevice.getAddress().toString().c_str(), advertisedDevice.getName().c_str(), advertisedDevice.getRSSI());
-    }
-};
-
-
 
 void writeNewUnlockKey(BLEClient* clientP, std::vector<uint8_t> unlockKey){
   if(unlockKey.size() != 16){
@@ -239,13 +256,10 @@ void loop() {
   switch (command[0]) {
     case 's':{
       isFirstScanResultFlag = 0;
+      // Get pointer to pre-configured BLEScan singleton
       BLEScan* bleScanP = BLEDevice::getScan();
-      bleScanP->setAdvertisedDeviceCallbacks(new AdvertisedDeviceCallbacks());
-      bleScanP->setActiveScan(true);
-      bleScanP->setInterval(1000);
-      bleScanP->setWindow(1000);
       Serial.printf("s [");
-      BLEScanResults* foundDevicesP = bleScanP->start(1, false);
+      [[maybe_unused]] BLEScanResults foundDevicesP = bleScanP->start(1, false);
       Serial.printf("]\n");
       bleScanP->stop();
       bleScanP->clearResults();
@@ -255,7 +269,7 @@ void loop() {
       clientP = BLEDevice::createClient();
       BLEAddress macAdderss = BLEAddress(command.substring(2).c_str());
       ESP_LOGI(LOG_TAG,"Trying to connect to %s", macAdderss.toString().c_str());
-      clientP->connect(macAdderss, BLE_ADDR_TYPE_RANDOM);
+      clientP->connect(macAdderss, BLE_ADDR_TYPE_PUBLIC);
       if (!clientP) {
         ESP_LOGE(LOG_TAG, "connection failed");
         exit(1);
@@ -268,7 +282,7 @@ void loop() {
       clientP = BLEDevice::createClient();
       BLEAddress macAdderss = BLEAddress(command.substring(2).c_str());
       ESP_LOGI(LOG_TAG,"Trying to connect to %s", macAdderss.toString().c_str());
-      clientP->connect(macAdderss, BLE_ADDR_TYPE_RANDOM);
+      clientP->connect(macAdderss, BLE_ADDR_TYPE_PUBLIC);
       if (!clientP) {
         ESP_LOGE(LOG_TAG, "connection failed");
         exit(1);
