@@ -110,6 +110,22 @@ class OmronBleSecCallbacks : public BLESecurityCallbacks {
   }
 };
 
+class AdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
+  void onResult(BLEAdvertisedDevice advertisedDevice) {
+    if (!isFirstScanResultFlag) {
+      isFirstScanResultFlag = 1;
+    } else {
+      Serial.printf(",");
+    }
+    Serial.printf("{\"mac\": \"%s\", \"name\": \"%s\", \"rssi\": %d}",
+                  advertisedDevice.getAddress().toString().c_str(),
+                  advertisedDevice.getName().c_str(),
+                  advertisedDevice.getRSSI());
+  }
+};
+
+AdvertisedDeviceCallbacks scanCallbacks{};
+
 void setup() {
   Serial.begin(115200);
   ESP_LOGI(LOG_TAG, "ESP32 bridge online");
@@ -124,21 +140,12 @@ void setup() {
   securityP->setAuthenticationMode(ESP_LE_AUTH_BOND); //also available ESP_LE_AUTH_NO_BOND, ESP_LE_AUTH_REQ_SC_MITM, ESP_LE_AUTH_BOND, ESP_LE_AUTH_NO_BOND
   securityP->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
   securityP->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-  
+  BLEScan* bleScanP = BLEDevice::getScan();
+  bleScanP->setAdvertisedDeviceCallbacks(&scanCallbacks);
+  bleScanP->setActiveScan(true);
+  bleScanP->setInterval(1000);
+  bleScanP->setWindow(1000);
 }
-
-class AdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
-    void onResult(BLEAdvertisedDevice advertisedDevice) {
-      if(!isFirstScanResultFlag){
-        isFirstScanResultFlag = 1;
-      }else{
-        Serial.printf(",");
-      }
-      Serial.printf("{\"mac\": \"%s\", \"name\": \"%s\", \"rssi\": \%d}", advertisedDevice.getAddress().toString().c_str(), advertisedDevice.getName().c_str(), advertisedDevice.getRSSI());
-    }
-};
-
-
 
 void writeNewUnlockKey(BLEClient* clientP, std::vector<uint8_t> unlockKey){
   if(unlockKey.size() != 16){
@@ -239,11 +246,8 @@ void loop() {
   switch (command[0]) {
     case 's':{
       isFirstScanResultFlag = 0;
+      // Get pointer to pre-configured BLEScan singleton
       BLEScan* bleScanP = BLEDevice::getScan();
-      bleScanP->setAdvertisedDeviceCallbacks(new AdvertisedDeviceCallbacks());
-      bleScanP->setActiveScan(true);
-      bleScanP->setInterval(1000);
-      bleScanP->setWindow(1000);
       Serial.printf("s [");
       BLEScanResults* foundDevicesP = bleScanP->start(1, false);
       Serial.printf("]\n");
