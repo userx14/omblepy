@@ -259,7 +259,7 @@ void loop() {
       clientP = BLEDevice::createClient();
       BLEAddress macAdderss = BLEAddress(command.substring(2).c_str());
       ESP_LOGI(LOG_TAG,"Trying to connect to %s", macAdderss.toString().c_str());
-      clientP->connect(macAdderss, BLE_ADDR_TYPE_RANDOM);
+      clientP->connect(macAdderss, BLE_ADDR_TYPE_PUBLIC);
       if (!clientP) {
         ESP_LOGE(LOG_TAG, "connection failed");
         exit(1);
@@ -272,7 +272,7 @@ void loop() {
       clientP = BLEDevice::createClient();
       BLEAddress macAdderss = BLEAddress(command.substring(2).c_str());
       ESP_LOGI(LOG_TAG,"Trying to connect to %s", macAdderss.toString().c_str());
-      clientP->connect(macAdderss, BLE_ADDR_TYPE_RANDOM);
+      clientP->connect(macAdderss, BLE_ADDR_TYPE_PUBLIC);
       if (!clientP) {
         ESP_LOGE(LOG_TAG, "connection failed");
         exit(1);
