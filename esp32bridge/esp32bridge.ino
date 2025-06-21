@@ -256,6 +256,15 @@ void cleanupClient(BLEClient *&client) {
   }
 }
 
+void newClient(BLEClient *&client) {
+  cleanupClient(client);
+  client = BLEDevice::createClient();
+  if (!client) {
+    ESP_LOGE(LOG_TAG, "createClient() failed");
+    esp_restart();
+  }
+}
+
 void loop() {
   String command;
   if(Serial.available()){
@@ -274,28 +283,24 @@ void loop() {
     }
     break;
     case 'p':{
-      cleanupClient(clientP);
-      clientP = BLEDevice::createClient();
+      newClient(clientP);
       BLEAddress macAdderss = BLEAddress(command.substring(2).c_str());
-      ESP_LOGI(LOG_TAG,"Trying to connect to %s", macAdderss.toString().c_str());
-      clientP->connect(macAdderss, BLE_ADDR_TYPE_PUBLIC);
-      if (!clientP) {
+      ESP_LOGI(LOG_TAG, "Trying to connect to %s", macAdderss.toString().c_str());
+      if (!clientP->connect(macAdderss, BLE_ADDR_TYPE_PUBLIC)) {
         ESP_LOGE(LOG_TAG, "connection failed");
-        exit(1);
+        esp_restart();
       }
       writeNewUnlockKey(clientP, defaultUnlockKey);
       _enableRxChannelNotifyAndCallback();
     }
     break;
     case 'c':{
-      cleanupClient(clientP);
-      clientP = BLEDevice::createClient();
+      newClient(clientP);
       BLEAddress macAdderss = BLEAddress(command.substring(2).c_str());
-      ESP_LOGI(LOG_TAG,"Trying to connect to %s", macAdderss.toString().c_str());
-      clientP->connect(macAdderss, BLE_ADDR_TYPE_PUBLIC);
-      if (!clientP) {
+      ESP_LOGI(LOG_TAG, "Trying to connect to %s", macAdderss.toString().c_str());
+      if (!clientP->connect(macAdderss, BLE_ADDR_TYPE_PUBLIC)) {
         ESP_LOGE(LOG_TAG, "connection failed");
-        exit(1);
+        esp_restart();
       }
       unlockWithUnlockKey(clientP, defaultUnlockKey);
       _enableRxChannelNotifyAndCallback();
