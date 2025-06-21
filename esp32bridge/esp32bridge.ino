@@ -248,6 +248,14 @@ void sendTx(uint8_t* txData){
 
 }
 
+void cleanupClient(BLEClient *&client) {
+  if (client) {
+    client->disconnect();
+    delete client;
+    client = nullptr;
+  }
+}
+
 void loop() {
   String command;
   if(Serial.available()){
@@ -266,6 +274,7 @@ void loop() {
     }
     break;
     case 'p':{
+      cleanupClient(clientP);
       clientP = BLEDevice::createClient();
       BLEAddress macAdderss = BLEAddress(command.substring(2).c_str());
       ESP_LOGI(LOG_TAG,"Trying to connect to %s", macAdderss.toString().c_str());
@@ -279,6 +288,7 @@ void loop() {
     }
     break;
     case 'c':{
+      cleanupClient(clientP);
       clientP = BLEDevice::createClient();
       BLEAddress macAdderss = BLEAddress(command.substring(2).c_str());
       ESP_LOGI(LOG_TAG,"Trying to connect to %s", macAdderss.toString().c_str());
