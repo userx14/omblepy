@@ -2,7 +2,8 @@
 2) download esp32 by Espressiv Systems in board manager
 3) install base64 library by Densaugeo version 1.3.0
 4) select correct com-port, set core-debugging-level to None, and configure board specific options
-5) upload the compiled sketch and close the serial monitor in the arduino ide, so the python script has access
+5) open the esp32bridge.ino file
+6) compile and upload the sketch and close the serial monitor in the arduino ide, so the python script has access
 
 Commands:
 s                     -> (scan bluetooth devices and returns json formated list with rssi and name)
