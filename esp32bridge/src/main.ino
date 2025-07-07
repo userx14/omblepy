@@ -276,7 +276,7 @@ void loop() {
       // Get pointer to pre-configured BLEScan singleton
       BLEScan* bleScanP = BLEDevice::getScan();
       Serial.printf("s [");
-      [[maybe_unused]] BLEScanResults* foundDevicesP = bleScanP->start(1, false);
+      [[maybe_unused]] auto foundDevicesP = bleScanP->start(1, false);
       Serial.printf("]\n");
       bleScanP->stop();
       bleScanP->clearResults();
