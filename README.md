@@ -49,7 +49,7 @@ This is most important when you are trying to add support for a new device.
 | device model | sold under name |  pairing | basic data readout | new record counter | time sync | contributors / testers / help by |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | [HEM-7150T](deviceSpecific/hem-7150t.py) | BP7250  | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14  |
-| [HEM-7155T](deviceSpecific/hem-7155t.py) | M400 / M4		      	            | ✔️ | ✔️ | ✔️ | ✔️ | dromie, RobertWojtowicz   |
+| [HEM-7155T](deviceSpecific/hem-7155t.py) | M400 / M4 / X4 smart	            | ✔️ | ✔️ | ✔️ | ✔️ | dromie, RobertWojtowicz, Nwanko |
 | [HEM-7322T](deviceSpecific/hem-7322t.py) | M700 Intelli IT 				        	| ✔️ | ✔️ | ✔️ | ✔️ | userx14 				  	      |
 | [HEM-7342T](deviceSpecific/hem-7342t.py) | BP7450                           | ✔️ | ✔️ | ❓  | ❓ | Toei79, userx14           |
 | [HEM-7361T](deviceSpecific/hem-7361t.py) | M500 Intelli IT / M7 Intelli IT 	| ✔️ | ✔️ | ✔️ | ✔️ | LazyT, userx14, zivanfi, RobertWojtowicz |
