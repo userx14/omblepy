@@ -80,7 +80,7 @@ class bluetoothTxRxHandler:
         self.rxFinishedFlag = False
         retries = 0
         while True:
-            await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[channelIdx], command)
+            await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[0], command)
 
             currentTimeout = timeoutS
             while(self.rxFinishedFlag == False):
