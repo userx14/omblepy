@@ -11,11 +11,11 @@ import csv
 import json
 
 #global constants
-parentService_UUID        = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
+parentService_UUID        = "0000fe4a-0000-1000-8000-00805f9b34fb"
 
 #global variables
 bleClient           = None
-examplePairingKey   = bytearray.fromhex("deadbeaf12341234deadbeaf12341234") #arbitrary choise
+examplePairingKey   = bytearray.fromhex("00AAFFBB")   #arbitrary choise
 deviceSpecific      = None                            #imported module for each device
 logger              = logging.getLogger("omblepy")
 
@@ -26,18 +26,12 @@ def convertByteArrayToHexString(array):
 class bluetoothTxRxHandler:
     #BTLE Characteristic IDs
     deviceRxChannelUUIDs  = [
-                                "49123040-aee8-11e1-a74d-0002a5d5c51b",
-                                "4d0bf320-aee8-11e1-a0d9-0002a5d5c51b",
-                                "5128ce60-aee8-11e1-b84b-0002a5d5c51b",
-                                "560f1420-aee8-11e1-8184-0002a5d5c51b"
+                                "49123040-aee8-11e1-a74d-0002a5d5c51b"
                             ]
     deviceTxChannelUUIDs  = [
-                                "db5b55e0-aee7-11e1-965e-0002a5d5c51b",
-                                "e0b8a060-aee7-11e1-92f4-0002a5d5c51b",
-                                "0ae12b00-aee8-11e1-a192-0002a5d5c51b",
-                                "10e1ba60-aee8-11e1-89e5-0002a5d5c51b"
+                                "db5b55e0-aee7-11e1-965e-0002a5d5c51b"
                             ]
-    deviceDataRxChannelIntHandles = [0x360, 0x370, 0x380, 0x390]
+    deviceDataRxChannelIntHandles = [31]
     deviceUnlock_UUID         = "b305b680-aee7-11e1-a730-0002a5d5c51b"
 
     def __init__(self, pairing = False):
@@ -46,7 +40,6 @@ class bluetoothTxRxHandler:
         self.rxEepromAddress            = None
         self.rxDataBytes                = None
         self.rxFinishedFlag             = False
-        self.rxRawChannelBuffer         = [None] * 4 #a buffer for each channel
 
     async def _enableRxChannelNotifyAndCallback(self):
         if(self.currentRxNotifyStateFlag != True):
@@ -61,58 +54,33 @@ class bluetoothTxRxHandler:
             self.currentRxNotifyStateFlag = False
 
     def _callbackForRxChannels(self, BleakGATTChar, rxBytes):
-        if type(BleakGATTChar) is int:
-            rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar)
-        else:
-            rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar.handle)
-        self.rxRawChannelBuffer[rxChannelId] = rxBytes
-
-        logger.debug(f"rx ch{rxChannelId} < {convertByteArrayToHexString(rxBytes)}")
-        if self.rxRawChannelBuffer[0]:                               #if there is data present in the first rx buffer
-            packetSize       = self.rxRawChannelBuffer[0][0]
-            requiredChannels = range((packetSize + 15) // 16)
-            #are all required channels already recieved
-            for channelIdx in requiredChannels:
-                if self.rxRawChannelBuffer[channelIdx] is None:         #if one of the required channels is empty wait for more packets to arrive
-                    return
-
-            #check crc
-            combinedRawRx = bytearray()
-            for channelIdx in requiredChannels:
-                combinedRawRx += self.rxRawChannelBuffer[channelIdx]
-            combinedRawRx = combinedRawRx[:packetSize]          #cut extra bytes from the end
-            xorCrc = 0
-            for byte in combinedRawRx:
-                xorCrc ^= byte
-            if(xorCrc):
-                raise ValueError(f"data corruption in rx\ncrc: {xorCrc}\ncombniedBuffer: {convertByteArrayToHexString(combinedRawRx)}")
-                return
-            #extract information
-            self.rxPacketType       = combinedRawRx[1:3]
-            self.rxEepromAddress    = combinedRawRx[3:5]
-            expectedNumDataBytes    = combinedRawRx[5]
-            if(expectedNumDataBytes > (len(combinedRawRx) - 8)):
-                self.rxDataBytes    = bytes(b'\xff') * expectedNumDataBytes
-            else:
-                if(self.rxPacketType) == bytearray.fromhex("8f00"): #need special case for end of transmission packet, otherwise transmission error code is not accessible
-                    self.rxDataBytes = combinedRawRx[6:7]
-                else:
-                    self.rxDataBytes    = combinedRawRx[6: 6 + expectedNumDataBytes]
-            self.rxRawChannelBuffer = [None] * 4 #clear channel buffers
-            self.rxFinishedFlag     = True
+        logger.debug(f"rx ch0 < {convertByteArrayToHexString(rxBytes)}")
+        packetSize = rxBytes[0]
+        xorCrc = 0
+        for byte in rxBytes:
+            xorCrc ^= byte
+        if(xorCrc):
+            raise ValueError(f"data corruption in rx\ncrc: {xorCrc}\ncombniedBuffer: {convertByteArrayToHexString(rxBytes)}")
             return
+        #extract information
+        self.rxPacketType       = rxBytes[1:3]
+        self.rxEepromAddress    = rxBytes[3:5]
+        expectedNumDataBytes    = rxBytes[5]
+        if(expectedNumDataBytes > (len(rxBytes) - 8)):
+            self.rxDataBytes    = bytes(b'\xff') * expectedNumDataBytes
+        else:
+            if(self.rxPacketType) == bytearray.fromhex("8f00"): #need special case for end of transmission packet, otherwise transmission error code is not accessible
+                self.rxDataBytes = rxBytes[6:7]
+            else:
+                self.rxDataBytes    = rxBytes[6: 6 + expectedNumDataBytes]
+        self.rxFinishedFlag     = True
         return
 
     async def _waitForRxOrRetry(self, command, timeoutS = 1.0):
         self.rxFinishedFlag = False
         retries = 0
         while True:
-            commandCopy = command
-            requiredTxChannels = range((len(command) + 15) // 16)
-            for channelIdx in requiredTxChannels:
-                logger.debug(f"tx ch{channelIdx} > {convertByteArrayToHexString(commandCopy[:16])}")
-                await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[channelIdx], commandCopy[:16])
-                commandCopy = commandCopy[16:]
+            await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[channelIdx], command)
 
             currentTimeout = timeoutS
             while(self.rxFinishedFlag == False):
@@ -208,26 +176,17 @@ class bluetoothTxRxHandler:
         return
 
     async def writeNewUnlockKey(self, newKeyByteArray = examplePairingKey):
-        if(len(newKeyByteArray) != 16):
-            raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
+        if(len(newKeyByteArray) != 4):
+            raise ValueError(f"key has to be 4 bytes long, is {len(newKeyByteArray)}")
             return
         #enable key programming mode
         await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
         self.rxFinishedFlag = False
-        await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x02' + b'\x00'*16, response=True)
+        await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x11' + newKeyByteArray, response=True)
         while(self.rxFinishedFlag == False):
             await asyncio.sleep(0.1)
         deviceResponse = self.rxDataBytes
-        if(deviceResponse[:2] != bytearray.fromhex("8200")):
-            raise ValueError(f"Could not enter key programming mode. Has the device been started in pairing mode? Got response: {deviceResponse}")
-            return
-        #program new key
-        self.rxFinishedFlag = False
-        await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x00' + newKeyByteArray, response=True)
-        while(self.rxFinishedFlag == False):
-            await asyncio.sleep(0.1)
-        deviceResponse = self.rxDataBytes
-        if(deviceResponse[:2] != bytearray.fromhex("8000")):
+        if(deviceResponse[:2] != bytearray.fromhex("9100")):
             raise ValueError(f"Failure to program new key. Response: {deviceResponse}")
             return
         await bleClient.stop_notify(self.deviceUnlock_UUID)
