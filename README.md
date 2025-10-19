@@ -6,13 +6,9 @@ Cli tool to read records from Omron Bluetooth-LE measurement instruments
 
 | operating system / hardware | supported | install instruction / comment |
 |---|---|---|
-| win10 | ✅ | install <a href="https://www.python.org/downloads/">python</a>, enable installer checkbox `add to path` <br> in cmd `pip install terminaltables bleak` |
-| win11 | ❌ | instructions of win10 work in principle, but win11 ble pairing dialog timeout is only 1 second. |
-| nixos23.05 | ✅ | in configuration.nix, set `hardware.bluetooth.enable = true;`. For temporary python shell:<br> `nix-shell -p python3.11 python311Packages.bleak python311Packages.terminaltables` |
-| debian11/12 | ❓/❌ | unreliable, depends on bt-hardware / bluez-version if pairing will work. <br>Install python and packages with `apt install python3.12` `pip3 install bleak terminaltables` |
-| raspberry pi os <br>+ PI 4B / 5 | ✅ | see debian 12 for install instructions |
-| mac | ❌ | the used bluetooth library bleak is missing the pairing feature on osx |
-| all os <br>+ esp32 | ✅ | see under-development [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge). |
+| win10/11 | ✅ | install <a href="https://www.python.org/downloads/">python</a>, enable installer checkbox `add to path` <br> in cmd `pip install terminaltables simplepyble` |
+| linux | ❓ | To be tested. <br>Install python and packages with `apt install python3.12` `pip3 install simplepyble terminaltables` |
+| mac | ❓ | To be tested. Supports only single adapter. |
 
 ## Usage
 For the first time pairing process you need to use the -p flag and enable pairing mode by holding the bluetooth button until you see the blinking -P- in the display:

@@ -35,9 +35,9 @@ class sharedDeviceDriverCode():
         newUnreadRecordSettings = unreadRecordsSettingsCopy[:4] + resetUnreadRecordsBytes * 2 + unreadRecordsSettingsCopy[8:]
         self.cachedSettingsBytes[slice(*self.settingsUnreadRecordsBytes)] = newUnreadRecordSettings
     
-    async def getRecords(self, btobj, useUnreadCounter, syncTime):
-        await btobj.unlockWithUnlockKey()
-        await btobj.startTransmission()
+    def getRecords(self, btobj, useUnreadCounter, syncTime):
+        btobj.unlockWithUnlockKey()
+        btobj.startTransmission()
         
         #cache settings for time sync and for unread record counter
         
@@ -48,12 +48,12 @@ class sharedDeviceDriverCode():
                 sectionNumBytes = section[1] - section[0]
                 if(sectionNumBytes >= 54):
                     raise ValueError("Section to big for a single read")
-                self.cachedSettingsBytes[slice(*section)] = await btobj.readContinuousEepromData(self.settingsReadAddress+section[0], sectionNumBytes, sectionNumBytes)
+                self.cachedSettingsBytes[slice(*section)] = btobj.readContinuousEepromData(self.settingsReadAddress+section[0], sectionNumBytes, sectionNumBytes)
         
         if(useUnreadCounter):
-            allUsersReadCommandsList = await self._getReadCommands_OnlyNewRecords()
+            allUsersReadCommandsList = self._getReadCommands_OnlyNewRecords()
         else:
-            allUsersReadCommandsList = await self._getReadCommands_AllRecords()
+            allUsersReadCommandsList = self._getReadCommands_AllRecords()
             
         #read records for all users
         logger.info("start reading data, this can take a while, use debug flag to see progress")
@@ -61,7 +61,7 @@ class sharedDeviceDriverCode():
         for userIdx, userReadCommandsList in enumerate(allUsersReadCommandsList):
             userConcatenatedRecordBytes = bytearray()
             for readCommand in userReadCommandsList:
-                userConcatenatedRecordBytes += await btobj.readContinuousEepromData(readCommand["address"], readCommand["size"], self.transmissionBlockSize)
+                userConcatenatedRecordBytes += btobj.readContinuousEepromData(readCommand["address"], readCommand["size"], self.transmissionBlockSize)
             #seperate the concatenated bytes into individual records
             perUserAnalyzedRecordsList = []
             for recordStartOffset in range(0, len(userConcatenatedRecordBytes), self.recordByteSize):
@@ -81,12 +81,12 @@ class sharedDeviceDriverCode():
         if(syncTime):
             self.deviceSpecific_syncWithSystemTime()
             bytesToWrite = self.cachedSettingsBytes[slice(*self.settingsTimeSyncBytes)]
-            await btobj.writeContinuousEepromData(self.settingsWriteAddress + self.settingsTimeSyncBytes[0], bytesToWrite, btBlockSize = len(bytesToWrite))
+            btobj.writeContinuousEepromData(self.settingsWriteAddress + self.settingsTimeSyncBytes[0], bytesToWrite, btBlockSize = len(bytesToWrite))
         if(useUnreadCounter):
             bytesToWrite = self.cachedSettingsBytes[slice(*self.settingsUnreadRecordsBytes)]
-            await btobj.writeContinuousEepromData(self.settingsWriteAddress + self.settingsUnreadRecordsBytes[0], bytesToWrite, btBlockSize = len(bytesToWrite))
+            btobj.writeContinuousEepromData(self.settingsWriteAddress + self.settingsUnreadRecordsBytes[0], bytesToWrite, btBlockSize = len(bytesToWrite))
         
-        await btobj.endTransmission()
+        btobj.endTransmission()
         return allUserRecordsList
     
     def calcRingBufferRecordReadLocations(self, userIdx, unreadRecords, lastWrittenSlot):
@@ -113,7 +113,7 @@ class sharedDeviceDriverCode():
             userReadCommandsList.append(firstRead)
         return userReadCommandsList
 
-    async def _getReadCommands_OnlyNewRecords(self):
+    def _getReadCommands_OnlyNewRecords(self):
         allUsersReadCommandsList = []
         readRecordsInfoByteArray = self.cachedSettingsBytes[slice(*self.settingsUnreadRecordsBytes)]
         numUsers = len(self.userStartAdressesList)
@@ -127,7 +127,7 @@ class sharedDeviceDriverCode():
             readCmds = self.calcRingBufferRecordReadLocations(userIdx, unreadRecordsForUser, lastWrittenSlotForUser)
             allUsersReadCommandsList.append(readCmds)
         return allUsersReadCommandsList
-    async def _getReadCommands_AllRecords(self):
+    def _getReadCommands_AllRecords(self):
         allUsersReadCommandsList = []
         for userIdx, userStartAddress in enumerate(self.userStartAdressesList):
             readCommand = dict()
