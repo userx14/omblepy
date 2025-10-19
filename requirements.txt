@@ -1,2 +1,2 @@
 terminaltables
-bleak
+simplepyble

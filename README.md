@@ -33,6 +33,7 @@ Success is indicated by the message "Paired device successfully with new key".
 | `-d`  | `--device` |✔️ | ✔️ | - | select which device library will be loaded from [here](deviceSpecific) | `python3 ./omblepy.py -d HEM-7322T` |
 | `-p`  | `--pair` | ❌ | ✔️ | - | use to write pairing key on first connection with this pc | `python3 ./omblepy.py -d HEM-7322T -p` |
 | `-m`  | `--mac` |❌ | ❌ | - | select omron devices mac and skip bluetooth scan and device selection dialog | `python3 ./omblepy.py -d HEM-7322T -m 11:22:33:44:55:66` |
+| `-a`  | `--adaptermac` | ❌ | ❌ | - | select bluetooth adapter mac and skip selection dialog | `python3 ./omblepy.py -d HEM-7322T -a 11:22:33:44:55:66` |
 | `-n`  | `--newRecOnly` | ❌ | ❌ | ❗ | instead of downloading all records, check and update the "new records couter" and only transfer new records | `python3 ./omblepy.py -d HEM-7322T -n` |
 | `-t`  | `--timeSync` | ❌ | ❌ | ❗ | synchronize omron internal clock with system time | `python3 ./omblepy.py -d HEM-7322T -t` |
 |  |`--loggerDebug`  | ❌ | ❌ | - | displays every ingoing and outgoing data for debugging purposes | `python3 ./omblepy.py -d HEM-7322T --loggerDebug` |
