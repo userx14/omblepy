@@ -366,10 +366,11 @@ async def main():
 
     #select device mac address
     validMacRegex = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
+    validUuidRegex = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     if(args.mac is not None):
         btmac = args.mac.strip("'").strip('\"') #strip quotes around arg
-        if(validMacRegex.match(btmac) is None):
-            raise ValueError(f"argument after -m or --mac {btmac} is not a valid mac address")
+        if(validMacRegex.match(btmac) is None and validUuidRegex.match(btmac) is None):
+            raise ValueError(f"argument after -m or --mac {btmac} is not a valid mac address or UUID")
             return
         bleAddr = btmac
     else:
