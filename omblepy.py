@@ -206,7 +206,7 @@ class bluetoothTxRxHandler:
         self.rxDataBytes = rxBytes
         self.rxFinishedFlag = True
         return
-    
+
     async def writeNewUnlockKey(self, newKeyByteArray = pairingKey):
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
@@ -250,7 +250,7 @@ class bluetoothTxRxHandler:
         logger.info(f"Paired device successfully with new key {newKeyByteArray}.")
         logger.info("From now on you can connect omit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
         return
-        
+
     async def unlockWithUnlockKey(self, keyByteArray = pairingKey):
         await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
         self.rxFinishedFlag = False
