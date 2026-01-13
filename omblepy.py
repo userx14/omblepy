@@ -15,7 +15,7 @@ parentService_UUID        = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
 
 #global variables
 bleClient           = None
-examplePairingKey   = bytearray.fromhex("deadbeaf12341234deadbeaf12341234") #arbitrary choise
+pairingKey   = bytearray.fromhex("deadbeaf12341234deadbeaf12341234") #arbitrary choice
 deviceSpecific      = None                            #imported module for each device
 logger              = logging.getLogger("omblepy")
 
@@ -206,8 +206,8 @@ class bluetoothTxRxHandler:
         self.rxDataBytes = rxBytes
         self.rxFinishedFlag = True
         return
-
-    async def writeNewUnlockKey(self, newKeyByteArray = examplePairingKey):
+    
+    async def writeNewUnlockKey(self, newKeyByteArray = pairingKey):
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
             return
@@ -250,8 +250,8 @@ class bluetoothTxRxHandler:
         logger.info(f"Paired device successfully with new key {newKeyByteArray}.")
         logger.info("From now on you can connect omit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
         return
-
-    async def unlockWithUnlockKey(self, keyByteArray = examplePairingKey):
+        
+    async def unlockWithUnlockKey(self, keyByteArray = pairingKey):
         await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
         self.rxFinishedFlag = False
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x01' + keyByteArray, response=True)
@@ -331,6 +331,7 @@ async def main():
     parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6). If not specified, will scan for devices and display a selection dialog.")
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
+    parser.add_argument('-k', "--key",                             type=str,   help="Pairing key as a 16-character string (e.g. 'UBPM-PairingKey!'). If not specified, uses default key.")
     args = parser.parse_args()
 
     #setup logging
