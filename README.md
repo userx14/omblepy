@@ -55,6 +55,7 @@ This is most important when you are trying to add support for a new device.
 | [HEM-7361T](deviceSpecific/hem-7361t.py) | M500 Intelli IT / M7 Intelli IT 	| ✔️ | ✔️ | ✔️ | ✔️ | LazyT, userx14, zivanfi, RobertWojtowicz |
 | [HEM-7530T](deviceSpecific/hem-7530t.py) | Omron Complete                   | ✔️ | ✔️ (no EKG) | ❌ | ❌ | Toei79, userx14  |
 | [HEM-7600T](deviceSpecific/hem-7600t.py) | Omron Evolv 				      	      | ✔️ | ✔️ | ✔️ | ✔️ | vulcainman 				        |
+| [HEM-6232T](deviceSpecific/hem-6232T.py) | RS7 Intelli IT			      	      | ✔️ | ✔️ | ❓ | ❓ |  invertedburger				        |
 
 ✔️=tested working, ❓=not tested , ❌=not supported yet <br>
 
