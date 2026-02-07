@@ -11,11 +11,11 @@ import csv
 import json
 
 #global constants
-parentService_UUID        = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
+parentService_UUID  = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
 
 #global variables
 bleClient           = None
-pairingKey   = bytearray.fromhex("deadbeaf12341234deadbeaf12341234") #arbitrary choice
+pairingKey          = bytearray.fromhex("deadbeaf12341234deadbeaf12341234") #arbitrary choice
 deviceSpecific      = None                            #imported module for each device
 logger              = logging.getLogger("omblepy")
 
@@ -38,7 +38,7 @@ class bluetoothTxRxHandler:
                                 "10e1ba60-aee8-11e1-89e5-0002a5d5c51b"
                             ]
     deviceDataRxChannelIntHandles = [0x360, 0x370, 0x380, 0x390]
-    deviceUnlock_UUID         = "b305b680-aee7-11e1-a730-0002a5d5c51b"
+    deviceUnlock_UUID             = "b305b680-aee7-11e1-a730-0002a5d5c51b"
 
     def __init__(self, pairing = False):
         self.currentRxNotifyStateFlag   = False
@@ -325,13 +325,13 @@ async def main():
     global bleClient
     global deviceSpecific
     parser = argparse.ArgumentParser(description="python tool to read the records of omron blood pressure instruments")
-    parser.add_argument('-d', "--device",     required="true", type=ascii,  help="Device name (e.g. HEM-7322T-D).")
+    parser.add_argument('-d', "--device",     required="true",  type=ascii, help="Device name (e.g. hem-7322t, see deviceSpecific folder)")
     parser.add_argument("--loggerDebug",      action="store_true",          help="Enable verbose logger output")
     parser.add_argument("-p", "--pair",       action="store_true",          help="Programm the pairing key into the device. Needs to be done only once.")
-    parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6). If not specified, will scan for devices and display a selection dialog.")
+    parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6 (win/lin) or A114A715-43E5-45A0-8683-8676EEAE885D (macOS)). If not specified, will scan for devices and display a selection dialog.")
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
-    parser.add_argument('-k', "--key",                             type=str,   help="Pairing key as a 16-character string (e.g. 'UBPM-PairingKey!'). If not specified, uses default key.")
+    parser.add_argument('-k', "--key",                          type=str,   help="Pairing key as a 32-character hex-string (e.g. 0123456789abcdef0123456789abcdef). If not specified, uses default key.")
     args = parser.parse_args()
 
     #setup logging
@@ -344,12 +344,12 @@ async def main():
     else:
         logger.setLevel(logging.INFO)
 
-    # Update pairing key if provided via command line
+    #update pairing key if provided via command line
     global pairingKey
     if args.key is not None:
-        if len(args.key) != 16:
-            raise ValueError(f"Pairing key must be exactly 16 characters, got {len(args.key)}")
-        pairingKey = bytearray(args.key.encode('ascii'))
+        if len(args.key) != 32:
+            raise ValueError(f"Pairing key must be exactly 32 characters, got {len(args.key)}")
+        pairingKey = bytearray.fromhex(args.key)
 
     #import device specific module
     if(not args.pair and not args.device):
@@ -366,7 +366,7 @@ async def main():
             return
 
     #select device mac address
-    validMacRegex = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
+    validMacRegex  = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
     validUuidRegex = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     if(args.mac is not None):
         btmac = args.mac.strip("'").strip('\"') #strip quotes around arg
