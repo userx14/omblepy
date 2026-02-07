@@ -7,12 +7,12 @@ Cli tool to read records from Omron Bluetooth-LE measurement instruments
 | operating system / hardware | supported | install instruction / comment |
 |---|---|---|
 | win10/11    | ✅ | install <a href="https://www.python.org/downloads/">python</a>, enable installer checkbox `add to path` <br> in cmd `pip install terminaltables bleak` |
-| nixos23.05  | ✅ | in configuration.nix, set `hardware.bluetooth.enable = true;`. For temporary python shell:<br> `nix-shell -p python3.11 python311Packages.bleak python311Packages.terminaltables` |
-| debian13 | ✅ | Install python and packages with `apt install python3.13` `pip3 install bleak terminaltables` |
+| nixos25.10  | ✅ | in configuration.nix, set `hardware.bluetooth.enable = true;`. For temporary python shell:<br> `nix-shell -p python3.13 python313Packages.bleak python313Packages.terminaltables` |
+| debian13    | ✅ | Install python and packages with `apt install python3.13` `pip3 install bleak terminaltables` |
 | raspberry pi os <br>+ PI 4B / 5 | ✅ | see debian 13 for install instructions |
 | debian11/12 | ❓/❌ | unreliable, depends on bt-hardware / bluez-version if pairing will work. <br>Install python and packages with `apt install python3.12` `pip3 install bleak terminaltables` |
-| mac         | ❌ | the used bluetooth library bleak is missing the pairing feature on osx. Could in theory work with [simplepyble version](https://github.com/userx14/omblepy/tree/simplepyble-test). |
-| all os <br>+ esp32 | ✅ | see under-development  [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge). |
+| mac         | ✅ | Instead of bluetooth mac address, specify UUID. Thanks to deviantintegral for adding support. |
+| all os <br>+ esp32 | ✅ | bluetooth communication handled by esp32, bride via usb serial, see semi finished [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge). |
 
 ## Usage
 For the first time pairing process you need to use the -p flag and enable pairing mode by holding the bluetooth button until you see the blinking -P- in the display:

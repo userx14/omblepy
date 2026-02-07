@@ -11,11 +11,11 @@ import csv
 import json
 
 #global constants
-parentService_UUID        = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
+parentService_UUID  = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
 
 #global variables
 bleClient           = None
-examplePairingKey   = bytearray.fromhex("deadbeaf12341234deadbeaf12341234") #arbitrary choise
+pairingKey          = bytearray.fromhex("deadbeaf12341234deadbeaf12341234") #arbitrary choice
 deviceSpecific      = None                            #imported module for each device
 logger              = logging.getLogger("omblepy")
 
@@ -38,7 +38,7 @@ class bluetoothTxRxHandler:
                                 "10e1ba60-aee8-11e1-89e5-0002a5d5c51b"
                             ]
     deviceDataRxChannelIntHandles = [0x360, 0x370, 0x380, 0x390]
-    deviceUnlock_UUID         = "b305b680-aee7-11e1-a730-0002a5d5c51b"
+    deviceUnlock_UUID             = "b305b680-aee7-11e1-a730-0002a5d5c51b"
 
     def __init__(self, pairing = False):
         self.currentRxNotifyStateFlag   = False
@@ -207,19 +207,34 @@ class bluetoothTxRxHandler:
         self.rxFinishedFlag = True
         return
 
-    async def writeNewUnlockKey(self, newKeyByteArray = examplePairingKey):
+    async def writeNewUnlockKey(self, newKeyByteArray = pairingKey):
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
             return
+
+        # Enable RX channel notifications first - this triggers the device to send
+        # an SMP Security Request, which kicks off the BLE pairing process
+        logger.debug("Enabling RX channel notifications to trigger pairing")
+        await bleClient.start_notify(self.deviceRxChannelUUIDs[0], lambda h, d: None)
+
         #enable key programming mode
         await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
-        self.rxFinishedFlag = False
-        await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x02' + b'\x00'*16, response=True)
-        while(self.rxFinishedFlag == False):
-            await asyncio.sleep(0.1)
-        deviceResponse = self.rxDataBytes
-        if(deviceResponse[:2] != bytearray.fromhex("8200")):
-            raise ValueError(f"Could not enter key programming mode. Has the device been started in pairing mode? Got response: {deviceResponse}")
+
+        # Retry entering key programming mode while BLE pairing completes in background
+        max_retries = 10
+        for attempt in range(max_retries):
+            self.rxFinishedFlag = False
+            await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x02' + b'\x00'*16, response=True)
+            while(self.rxFinishedFlag == False):
+                await asyncio.sleep(0.1)
+            deviceResponse = self.rxDataBytes
+            if(deviceResponse[:2] == bytearray.fromhex("8200")):
+                logger.debug(f"Entered key programming mode after {attempt + 1} attempt(s)")
+                break
+            logger.debug(f"Key programming mode attempt {attempt + 1}/{max_retries} got response: {deviceResponse[:2].hex()}, retrying...")
+            await asyncio.sleep(1)
+        else:
+            raise ValueError(f"Could not enter key programming mode after {max_retries} attempts. Has the device been started in pairing mode? Last response: {deviceResponse}")
             return
         #program new key
         self.rxFinishedFlag = False
@@ -231,11 +246,12 @@ class bluetoothTxRxHandler:
             raise ValueError(f"Failure to program new key. Response: {deviceResponse}")
             return
         await bleClient.stop_notify(self.deviceUnlock_UUID)
+        await bleClient.stop_notify(self.deviceRxChannelUUIDs[0])
         logger.info(f"Paired device successfully with new key {newKeyByteArray}.")
         logger.info("From now on you can connect omit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
         return
 
-    async def unlockWithUnlockKey(self, keyByteArray = examplePairingKey):
+    async def unlockWithUnlockKey(self, keyByteArray = pairingKey):
         await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
         self.rxFinishedFlag = False
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x01' + keyByteArray, response=True)
@@ -309,12 +325,13 @@ async def main():
     global bleClient
     global deviceSpecific
     parser = argparse.ArgumentParser(description="python tool to read the records of omron blood pressure instruments")
-    parser.add_argument('-d', "--device",     required="true", type=ascii,  help="Device name (e.g. HEM-7322T-D).")
+    parser.add_argument('-d', "--device",     required="true",  type=ascii, help="Device name (e.g. hem-7322t, see deviceSpecific folder)")
     parser.add_argument("--loggerDebug",      action="store_true",          help="Enable verbose logger output")
     parser.add_argument("-p", "--pair",       action="store_true",          help="Programm the pairing key into the device. Needs to be done only once.")
-    parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6). If not specified, will scan for devices and display a selection dialog.")
+    parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6 (win/lin) or A114A715-43E5-45A0-8683-8676EEAE885D (macOS)). If not specified, will scan for devices and display a selection dialog.")
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
+    parser.add_argument('-k', "--key",                          type=str,   help="Pairing key as a 32-character hex-string (e.g. 0123456789abcdef0123456789abcdef). If not specified, uses default key.")
     args = parser.parse_args()
 
     #setup logging
@@ -326,6 +343,13 @@ async def main():
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
+
+    #update pairing key if provided via command line
+    global pairingKey
+    if args.key is not None:
+        if len(args.key) != 32:
+            raise ValueError(f"Pairing key must be exactly 32 characters, got {len(args.key)}")
+        pairingKey = bytearray.fromhex(args.key)
 
     #import device specific module
     if(not args.pair and not args.device):
@@ -342,11 +366,12 @@ async def main():
             return
 
     #select device mac address
-    validMacRegex = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
+    validMacRegex  = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
+    validUuidRegex = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     if(args.mac is not None):
         btmac = args.mac.strip("'").strip('\"') #strip quotes around arg
-        if(validMacRegex.match(btmac) is None):
-            raise ValueError(f"argument after -m or --mac {btmac} is not a valid mac address")
+        if(validMacRegex.match(btmac) is None and validUuidRegex.match(btmac) is None):
+            raise ValueError(f"argument after -m or --mac {btmac} is not a valid mac address or UUID")
             return
         bleAddr = btmac
     else:
@@ -360,8 +385,7 @@ async def main():
     try:
         logger.info(f"Attempt connecting to {bleAddr}.")
         await bleClient.connect()
-        await asyncio.sleep(10)   #time delay for user to accept os pairing dialog on win11
-        await bleClient.pair(protection_level = 2)
+        await asyncio.sleep(0.5)
         #verify that the device is an omron device by checking presence of certain bluetooth services
         if parentService_UUID not in [service.uuid for service in bleClient.services]:
             raise OSError("""Some required bluetooth attributes not found on this ble device.
@@ -382,9 +406,8 @@ async def main():
             appendCsv(allRecs)
             saveUBPMJson(allRecs)
     finally:
-        logger.info("unpair and disconnect")
+        logger.info("disconnect")
         if bleClient.is_connected:
-            await bleClient.unpair()
             try:
                 await bleClient.disconnect()
             except AssertionError as e:
