@@ -70,8 +70,8 @@ class sharedDeviceDriverCode():
                     try:
                         singleRecordDict  = self.deviceSpecific_ParseRecordFormat(singleRecordBytes)
                         perUserAnalyzedRecordsList.append(singleRecordDict)
-                    except:
-                        logger.warning(f"Error parsing record for user{userIdx+1} at offset {recordStartOffset} data {bytes(singleRecordBytes).hex()}, ignoring this record.")
+                    except Exception as e:
+                        logger.warning(f"Error parsing record for user{userIdx+1} at offset {recordStartOffset} data {bytes(singleRecordBytes).hex()}: {e}, ignoring this record.")
             allUserRecordsList.append(perUserAnalyzedRecordsList)
             
         if(useUnreadCounter):
