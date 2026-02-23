@@ -399,6 +399,8 @@ async def main():
         if bleClient.is_connected:
             try:
                 await bleClient.disconnect()
+            except EOFError:
+                logger.debug("Device already disconnected (EOFError during disconnect)")
             except AssertionError as e:
                 logger.error("Bleak AssertionError during disconnect. This usually happens when using the bluezdbus adapter.")
                 logger.error("You can find the upstream issue at: https://github.com/hbldh/bleak/issues/641")
