@@ -86,7 +86,6 @@ class bluetoothTxRxHandler:
                 xorCrc ^= byte
             if(xorCrc):
                 raise ValueError(f"data corruption in rx\ncrc: {xorCrc}\ncombniedBuffer: {convertByteArrayToHexString(combinedRawRx)}")
-                return
             #extract information
             self.rxPacketType       = combinedRawRx[1:3]
             self.rxEepromAddress    = combinedRawRx[3:5]
@@ -125,8 +124,7 @@ class bluetoothTxRxHandler:
             retries += 1
             logger.warning(f"Transmission failed, count of retries: {retries} / 5")
             if(retries >= 5):
-                ValueError("Same transmission failed 5 times, abort")
-                return
+                raise ValueError("Same transmission failed 5 times, abort")
 
     async def startTransmission(self):
         await self._enableRxChannelNotifyAndCallback()
@@ -140,10 +138,8 @@ class bluetoothTxRxHandler:
         await self._waitForRxOrRetry(stopDataReadout)
         if(self.rxPacketType != bytearray.fromhex("8f00")):
             raise ValueError("invlid response to data readout end")
-            return
         if(self.rxDataBytes[0]):
             raise ValueError(f"Device reported error status code {self.rxDataBytes[0]} while sending endTransmission command.")
-            return
         await self._disableRxChannelNotifyAndCallback()
 
     async def _writeBlockEeprom(self, address, dataByteArray):
@@ -210,7 +206,6 @@ class bluetoothTxRxHandler:
     async def writeNewUnlockKey(self, newKeyByteArray = pairingKey):
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
-            return
 
         # Enable RX channel notifications first - this triggers the device to send
         # an SMP Security Request, which kicks off the BLE pairing process
@@ -235,7 +230,6 @@ class bluetoothTxRxHandler:
             await asyncio.sleep(1)
         else:
             raise ValueError(f"Could not enter key programming mode after {max_retries} attempts. Has the device been started in pairing mode? Last response: {deviceResponse}")
-            return
         #program new key
         self.rxFinishedFlag = False
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x00' + newKeyByteArray, response=True)
@@ -244,7 +238,6 @@ class bluetoothTxRxHandler:
         deviceResponse = self.rxDataBytes
         if(deviceResponse[:2] != bytearray.fromhex("8000")):
             raise ValueError(f"Failure to program new key. Response: {deviceResponse}")
-            return
         await bleClient.stop_notify(self.deviceUnlock_UUID)
         await bleClient.stop_notify(self.deviceRxChannelUUIDs[0])
         logger.info(f"Paired device successfully with new key {newKeyByteArray}.")
@@ -354,7 +347,6 @@ async def main():
     #import device specific module
     if(not args.pair and not args.device):
         raise ValueError("When not in pairing mode, please specify your device type name with -d or --device")
-        return
     if(args.device):
         deviceName = args.device.strip("'").strip('\"') #strip quotes around arg
         sys.path.insert(0, "./deviceSpecific")
@@ -363,7 +355,6 @@ async def main():
             deviceSpecific = __import__(deviceName.lower())
         except ImportError:
             raise ValueError("the device is no supported yet, you can help by contributing :)")
-            return
 
     #select device mac address
     validMacRegex  = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
@@ -372,7 +363,6 @@ async def main():
         btmac = args.mac.strip("'").strip('\"') #strip quotes around arg
         if(validMacRegex.match(btmac) is None and validUuidRegex.match(btmac) is None):
             raise ValueError(f"argument after -m or --mac {btmac} is not a valid mac address or UUID")
-            return
         bleAddr = btmac
     else:
         print("To improve your chance of a successful connection please do the following:")
@@ -391,7 +381,6 @@ async def main():
             raise OSError("""Some required bluetooth attributes not found on this ble device.
                              This means that either, you connected to a wrong device,
                              or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")
-            return
         bluetoothTxRxObj = bluetoothTxRxHandler()
         if(args.pair):
             await bluetoothTxRxObj.writeNewUnlockKey()
@@ -410,6 +399,8 @@ async def main():
         if bleClient.is_connected:
             try:
                 await bleClient.disconnect()
+            except EOFError:
+                logger.debug("Device already disconnected (EOFError during disconnect)")
             except AssertionError as e:
                 logger.error("Bleak AssertionError during disconnect. This usually happens when using the bluezdbus adapter.")
                 logger.error("You can find the upstream issue at: https://github.com/hbldh/bleak/issues/641")
