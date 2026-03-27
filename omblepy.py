@@ -10,46 +10,56 @@ import logging
 import csv
 import json
 
-#global constants
-parentService_UUID  = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
-
 #global variables
 bleClient           = None
 pairingKey          = bytearray.fromhex("deadbeaf12341234deadbeaf12341234") #arbitrary choice
 deviceSpecific      = None                            #imported module for each device
 logger              = logging.getLogger("omblepy")
 
+LEGACY_PARENT_SERVICE_UUID = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
+LEGACY_DEVICE_RX_CHANNEL_UUIDS = [
+    "49123040-aee8-11e1-a74d-0002a5d5c51b",
+    "4d0bf320-aee8-11e1-a0d9-0002a5d5c51b",
+    "5128ce60-aee8-11e1-b84b-0002a5d5c51b",
+    "560f1420-aee8-11e1-8184-0002a5d5c51b",
+]
+LEGACY_DEVICE_TX_CHANNEL_UUIDS = [
+    "db5b55e0-aee7-11e1-965e-0002a5d5c51b",
+    "e0b8a060-aee7-11e1-92f4-0002a5d5c51b",
+    "0ae12b00-aee8-11e1-a192-0002a5d5c51b",
+    "10e1ba60-aee8-11e1-89e5-0002a5d5c51b",
+]
+LEGACY_DEVICE_UNLOCK_UUID = "b305b680-aee7-11e1-a730-0002a5d5c51b"
+
 def convertByteArrayToHexString(array):
     return (bytes(array).hex())
 
 
 class bluetoothTxRxHandler:
-    #BTLE Characteristic IDs
-    deviceRxChannelUUIDs  = [
-                                "49123040-aee8-11e1-a74d-0002a5d5c51b",
-                                "4d0bf320-aee8-11e1-a0d9-0002a5d5c51b",
-                                "5128ce60-aee8-11e1-b84b-0002a5d5c51b",
-                                "560f1420-aee8-11e1-8184-0002a5d5c51b"
-                            ]
-    deviceTxChannelUUIDs  = [
-                                "db5b55e0-aee7-11e1-965e-0002a5d5c51b",
-                                "e0b8a060-aee7-11e1-92f4-0002a5d5c51b",
-                                "0ae12b00-aee8-11e1-a192-0002a5d5c51b",
-                                "10e1ba60-aee8-11e1-89e5-0002a5d5c51b"
-                            ]
-    deviceDataRxChannelIntHandles = [0x360, 0x370, 0x380, 0x390]
-    deviceUnlock_UUID             = "b305b680-aee7-11e1-a730-0002a5d5c51b"
-
-    def __init__(self, pairing = False):
+    def __init__(self, deviceDriver):
+        self.deviceRxChannelUUIDs       = getattr(deviceDriver, "deviceRxChannelUUIDs", LEGACY_DEVICE_RX_CHANNEL_UUIDS)
+        self.deviceTxChannelUUIDs       = getattr(deviceDriver, "deviceTxChannelUUIDs", LEGACY_DEVICE_TX_CHANNEL_UUIDS)
+        self.deviceUnlock_UUID          = getattr(deviceDriver, "deviceUnlock_UUID", LEGACY_DEVICE_UNLOCK_UUID)
+        self.requiresUnlock             = getattr(deviceDriver, "requiresUnlock", True)
+        self.supportsPairing            = getattr(deviceDriver, "supportsPairing", True)
         self.currentRxNotifyStateFlag   = False
         self.rxPacketType               = None
         self.rxEepromAddress            = None
         self.rxDataBytes                = None
         self.rxFinishedFlag             = False
         self.rxRawChannelBuffer         = [None] * 4 #a buffer for each channel
+        self.rxHandleToChannelId        = dict()
+
+    def _buildRxHandleMap(self):
+        self.rxHandleToChannelId = dict()
+        for channelIdx, rxChannelUUID in enumerate(self.deviceRxChannelUUIDs):
+            characteristic = bleClient.services.get_characteristic(rxChannelUUID)
+            if characteristic is not None:
+                self.rxHandleToChannelId[characteristic.handle] = channelIdx
 
     async def _enableRxChannelNotifyAndCallback(self):
         if(self.currentRxNotifyStateFlag != True):
+            self._buildRxHandleMap()
             for rxChannelUUID in self.deviceRxChannelUUIDs:
                 await bleClient.start_notify(rxChannelUUID, self._callbackForRxChannels)
             self.currentRxNotifyStateFlag = True
@@ -61,26 +71,33 @@ class bluetoothTxRxHandler:
             self.currentRxNotifyStateFlag = False
 
     def _callbackForRxChannels(self, BleakGATTChar, rxBytes):
-        if type(BleakGATTChar) is int:
-            rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar)
+        if len(self.deviceRxChannelUUIDs) == 1:
+            rxChannelId = 0
+        elif type(BleakGATTChar) is int:
+            rxChannelId = self.rxHandleToChannelId[BleakGATTChar]
         else:
-            rxChannelId = self.deviceDataRxChannelIntHandles.index(BleakGATTChar.handle)
+            rxChannelId = self.rxHandleToChannelId[BleakGATTChar.handle]
         self.rxRawChannelBuffer[rxChannelId] = rxBytes
 
         logger.debug(f"rx ch{rxChannelId} < {convertByteArrayToHexString(rxBytes)}")
         if self.rxRawChannelBuffer[0]:                               #if there is data present in the first rx buffer
-            packetSize       = self.rxRawChannelBuffer[0][0]
-            requiredChannels = range((packetSize + 15) // 16)
-            #are all required channels already recieved
-            for channelIdx in requiredChannels:
-                if self.rxRawChannelBuffer[channelIdx] is None:         #if one of the required channels is empty wait for more packets to arrive
-                    return
+            if len(self.deviceRxChannelUUIDs) == 1:
+                combinedRawRx = bytearray(self.rxRawChannelBuffer[0])
+                self.rxRawChannelBuffer = [None] * 4
+            else:
+                packetSize       = self.rxRawChannelBuffer[0][0]
+                requiredChannels = range((packetSize + 15) // 16)
+                #are all required channels already recieved
+                for channelIdx in requiredChannels:
+                    if self.rxRawChannelBuffer[channelIdx] is None:         #if one of the required channels is empty wait for more packets to arrive
+                        return
 
-            #check crc
-            combinedRawRx = bytearray()
-            for channelIdx in requiredChannels:
-                combinedRawRx += self.rxRawChannelBuffer[channelIdx]
-            combinedRawRx = combinedRawRx[:packetSize]          #cut extra bytes from the end
+                #check crc
+                combinedRawRx = bytearray()
+                for channelIdx in requiredChannels:
+                    combinedRawRx += self.rxRawChannelBuffer[channelIdx]
+                combinedRawRx = combinedRawRx[:packetSize]          #cut extra bytes from the end
+                self.rxRawChannelBuffer = [None] * 4 #clear channel buffers
             xorCrc = 0
             for byte in combinedRawRx:
                 xorCrc ^= byte
@@ -97,7 +114,6 @@ class bluetoothTxRxHandler:
                     self.rxDataBytes = combinedRawRx[6:7]
                 else:
                     self.rxDataBytes    = combinedRawRx[6: 6 + expectedNumDataBytes]
-            self.rxRawChannelBuffer = [None] * 4 #clear channel buffers
             self.rxFinishedFlag     = True
             return
         return
@@ -107,11 +123,18 @@ class bluetoothTxRxHandler:
         retries = 0
         while True:
             commandCopy = command
-            requiredTxChannels = range((len(command) + 15) // 16)
+            channelWidth = 16
+            if len(self.deviceTxChannelUUIDs) == 1:
+                channelWidth = max(channelWidth, len(command))
+            requiredTxChannels = range((len(command) + channelWidth - 1) // channelWidth)
             for channelIdx in requiredTxChannels:
-                logger.debug(f"tx ch{channelIdx} > {convertByteArrayToHexString(commandCopy[:16])}")
-                await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[channelIdx], commandCopy[:16])
-                commandCopy = commandCopy[16:]
+                txChunk = commandCopy[:channelWidth]
+                logger.debug(f"tx ch{channelIdx} > {convertByteArrayToHexString(txChunk)}")
+                if len(self.deviceTxChannelUUIDs) == 1:
+                    await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[channelIdx], txChunk, response=False)
+                else:
+                    await bleClient.write_gatt_char(self.deviceTxChannelUUIDs[channelIdx], txChunk)
+                commandCopy = commandCopy[channelWidth:]
 
             currentTimeout = timeoutS
             while(self.rxFinishedFlag == False):
@@ -204,6 +227,8 @@ class bluetoothTxRxHandler:
         return
 
     async def writeNewUnlockKey(self, newKeyByteArray = pairingKey):
+        if not self.supportsPairing:
+            raise ValueError("Pairing mode is not supported for this device in omblepy.")
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
 
@@ -245,6 +270,8 @@ class bluetoothTxRxHandler:
         return
 
     async def unlockWithUnlockKey(self, keyByteArray = pairingKey):
+        if not self.requiresUnlock:
+            return
         await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
         self.rxFinishedFlag = False
         await bleClient.write_gatt_char(self.deviceUnlock_UUID, b'\x01' + keyByteArray, response=True)
@@ -317,6 +344,7 @@ async def selectBLEdevices():
 async def main():
     global bleClient
     global deviceSpecific
+    devSpecificDriver = None
     parser = argparse.ArgumentParser(description="python tool to read the records of omron blood pressure instruments")
     parser.add_argument('-d', "--device",     required="true",  type=ascii, help="Device name (e.g. hem-7322t, see deviceSpecific folder)")
     parser.add_argument("--loggerDebug",      action="store_true",          help="Enable verbose logger output")
@@ -353,8 +381,13 @@ async def main():
         try:
             logger.info(f"Attempt to import module for device {deviceName.lower()}")
             deviceSpecific = __import__(deviceName.lower())
+            devSpecificDriver = deviceSpecific.deviceSpecificDriver()
         except ImportError:
             raise ValueError("the device is no supported yet, you can help by contributing :)")
+        supportsPairing = getattr(devSpecificDriver, "supportsPairing", True)
+        supportsOsBondingOnly = getattr(devSpecificDriver, "supportsOsBondingOnly", False)
+        if(args.pair and not supportsPairing and not supportsOsBondingOnly):
+            raise ValueError(f"{deviceName} does not support pairing in omblepy.")
 
     #select device mac address
     validMacRegex  = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
@@ -375,13 +408,27 @@ async def main():
     try:
         logger.info(f"Attempt connecting to {bleAddr}.")
         await bleClient.connect()
-        await asyncio.sleep(0.5)
+        if(args.pair and getattr(devSpecificDriver, "supportsOsBondingOnly", False)):
+            logger.info("Requesting OS-level BLE bonding for this device.")
+            try:
+                await bleClient.pair()
+            except TypeError:
+                await bleClient.pair(protection_level=2)
+            logger.info("OS-level BLE bonding request completed.")
+            return
+        servicesResolved = False
+        parentServiceUUID = getattr(devSpecificDriver, "parentService_UUID", LEGACY_PARENT_SERVICE_UUID)
+        for _ in range(20):
+            await asyncio.sleep(0.25)
+            if parentServiceUUID in [service.uuid for service in bleClient.services]:
+                servicesResolved = True
+                break
         #verify that the device is an omron device by checking presence of certain bluetooth services
-        if parentService_UUID not in [service.uuid for service in bleClient.services]:
+        if not servicesResolved:
             raise OSError("""Some required bluetooth attributes not found on this ble device.
                              This means that either, you connected to a wrong device,
                              or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")
-        bluetoothTxRxObj = bluetoothTxRxHandler()
+        bluetoothTxRxObj = bluetoothTxRxHandler(devSpecificDriver)
         if(args.pair):
             await bluetoothTxRxObj.writeNewUnlockKey()
             #this seems to be necessary when the device has not been paired to any device
@@ -389,7 +436,6 @@ async def main():
             await bluetoothTxRxObj.endTransmission()
         else:
             logger.info("communication started")
-            devSpecificDriver = deviceSpecific.deviceSpecificDriver()
             allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync)
             logger.info("communication finished")
             appendCsv(allRecs)

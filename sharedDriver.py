@@ -38,9 +38,9 @@ class sharedDeviceDriverCode():
     async def getRecords(self, btobj, useUnreadCounter, syncTime):
         await btobj.unlockWithUnlockKey()
         await btobj.startTransmission()
-        
+
         #cache settings for time sync and for unread record counter
-        
+
         if(syncTime or useUnreadCounter):
             #initialize cached settings bytes with zeros and use bytearray so that the values are mutable
             self.cachedSettingsBytes = bytearray(b'\0' * (self.settingsWriteAddress - self.settingsReadAddress)) 
