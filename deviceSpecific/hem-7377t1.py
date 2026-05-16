@@ -44,32 +44,81 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
     recordByteSize             = 0x10
     transmissionBlockSize      = 0x38
 
-    settingsReadAddress        = None
-    settingsWriteAddress       = None
-    settingsUnreadRecordsBytes = None
-    settingsTimeSyncBytes      = None
+    # Settings region: time data lives in the first 16 bytes of a 0x18-byte
+    # status block at 0x0040, and the time-sync write target is 0x0088.
+    # (settingsUnreadRecordsBytes is set to a zero-length range because BP5360's
+    # unread-record counter location isn't yet mapped — --newRecOnly will
+    # behave as if no records are unread until that's investigated.)
+    settingsReadAddress        = 0x0040
+    settingsWriteAddress       = 0x0088
+    settingsUnreadRecordsBytes = [0x00, 0x00]
+    settingsTimeSyncBytes      = [0x00, 0x10]
 
     def deviceSpecific_ParseRecordFormat(self, singleRecordAsByteArray):
         # HEM-7361T-family bit layout (BP5360 uses the same record format).
-        recordDict = dict()
-        minute = self._bytearrayBitsToInt(singleRecordAsByteArray, 68, 73)
-        second = self._bytearrayBitsToInt(singleRecordAsByteArray, 74, 79)
-        second = min([second, 59])  # field can range up to 63 in some records
-        recordDict["mov"] = self._bytearrayBitsToInt(singleRecordAsByteArray, 80, 80)
-        recordDict["ihb"] = self._bytearrayBitsToInt(singleRecordAsByteArray, 81, 81)
+        # Detect empty / non-record slots up front to keep omblepy's parse-error
+        # warnings clean: BP5360's unused user slot contains daily-summary or
+        # similar metadata that decodes to nonsense dates if pushed through the
+        # full parser.
+        year = self._bytearrayBitsToInt(singleRecordAsByteArray, 98, 103) + 2000
+        if year < 2020:
+            raise ValueError("record slot is empty")
         month = self._bytearrayBitsToInt(singleRecordAsByteArray, 82, 85)
         day = self._bytearrayBitsToInt(singleRecordAsByteArray, 86, 90)
         hour = self._bytearrayBitsToInt(singleRecordAsByteArray, 91, 95)
-        year = self._bytearrayBitsToInt(singleRecordAsByteArray, 98, 103) + 2000
+        minute = self._bytearrayBitsToInt(singleRecordAsByteArray, 68, 73)
+        if not (1 <= month <= 12) or not (1 <= day <= 31) or hour > 23 or minute > 59:
+            raise ValueError("record slot is empty")
+
+        second = self._bytearrayBitsToInt(singleRecordAsByteArray, 74, 79)
+        second = min([second, 59])  # field can range up to 63 in some records
+
+        recordDict = dict()
+        recordDict["mov"] = self._bytearrayBitsToInt(singleRecordAsByteArray, 80, 80)
+        recordDict["ihb"] = self._bytearrayBitsToInt(singleRecordAsByteArray, 81, 81)
         recordDict["bpm"] = self._bytearrayBitsToInt(singleRecordAsByteArray, 104, 111)
         recordDict["dia"] = self._bytearrayBitsToInt(singleRecordAsByteArray, 112, 119)
         recordDict["sys"] = self._bytearrayBitsToInt(singleRecordAsByteArray, 120, 127) + 25
+
+        # Range sanity (matches the standalone implementation; defends against
+        # rare corruption of stored records).
+        if not (60 <= recordDict["sys"] <= 250) or not (30 <= recordDict["dia"] <= 150) or not (30 <= recordDict["bpm"] <= 200):
+            raise ValueError("record values out of physiological range")
+
         recordDict["datetime"] = datetime.datetime(year, month, day, hour, minute, second)
         return recordDict
 
     def deviceSpecific_syncWithSystemTime(self):
-        raise ValueError(
-            "BP5360 time sync requires a byte-14 counter increment quirk that "
-            "isn't yet integrated into omblepy's settings-cache flow. "
-            "Re-run without -t / --timeSync."
-        )
+        # BP5360 byte-14 turns out to be a CHECKSUM of bytes 0-13 (sum & 0xff),
+        # the same convention HEM-7361T uses. The "running counter" formula in
+        # the original reverse engineering — old_byte14 + (new_sec - old_sec) + 1
+        # — was a coincidence: when only the second byte changes by +N (and
+        # byte 4 changes from 0x00 to 0x01), the checksum delta IS exactly
+        # N + 1, so the additive formula matched in the common case. It breaks
+        # when seconds wrap (negative delta) or when other date bytes change.
+        # Computing the checksum directly works in all cases.
+        timeSyncSettingsCopy = self.cachedSettingsBytes[slice(*self.settingsTimeSyncBytes)]
+        old_byte14 = timeSyncSettingsCopy[14]
+
+        currentTime = datetime.datetime.now()
+
+        # Build the new time block. Bytes 0-7 are preserved from the device read;
+        # byte 4 is forced to 0x01 (required by BP5360 firmware — purpose unclear
+        # from reverse engineering, but consistently sent by the Android app).
+        setNewTimeDataBytes = bytearray(timeSyncSettingsCopy[0:8])
+        setNewTimeDataBytes[4] = 0x01
+        setNewTimeDataBytes += bytes([
+            currentTime.year - 2000,
+            currentTime.month,
+            currentTime.day,
+            currentTime.hour,
+            currentTime.minute,
+            currentTime.second,
+        ])
+        # byte 14 = checksum over bytes 0-13; byte 15 = 0
+        checksum = sum(setNewTimeDataBytes) & 0xFF
+        setNewTimeDataBytes += bytes([checksum, 0x00])
+
+        self.cachedSettingsBytes[slice(*self.settingsTimeSyncBytes)] = setNewTimeDataBytes
+        logger.info(f"BP5360 time set to {currentTime.strftime('%Y-%m-%d %H:%M:%S')} "
+                    f"(byte14 checksum: 0x{old_byte14:02x} -> 0x{checksum:02x})")
