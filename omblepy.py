@@ -353,6 +353,7 @@ async def main():
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
     parser.add_argument('-k', "--key",                          type=str,   help="Pairing key as a 32-character hex-string (e.g. 0123456789abcdef0123456789abcdef). If not specified, uses default key.")
+    parser.add_argument("--adapter",                            type=str,   help="Linux/BlueZ only: specify which BT adapter to use (e.g. hci0, hci1). Defaults to whatever BlueZ picks; needed on multi-adapter systems if the cuff is bonded on a non-default adapter.")
     args = parser.parse_args()
 
     #setup logging
@@ -424,7 +425,10 @@ async def main():
             if device.address.upper() == bleAddr.upper() and not found_device_holder[0]:
                 found_device_holder[0] = device
                 found_event.set()
-        scanner = bleak.BleakScanner(detection_callback=_detection_cb, scanning_mode="active", bluez={"adapter": "hci1"})  # TODO: derive from CLI arg or auto-discover
+        scanner_kwargs = {}
+        if args.adapter:
+            scanner_kwargs["bluez"] = {"adapter": args.adapter}
+        scanner = bleak.BleakScanner(detection_callback=_detection_cb, scanning_mode="active", **scanner_kwargs)
         await scanner.start()
         try:
             await asyncio.wait_for(found_event.wait(), timeout=30)
