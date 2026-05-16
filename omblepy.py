@@ -404,7 +404,46 @@ async def main():
         print(" -do not accept any pairing dialog until you selected your device in the following list\n")
         bleAddr = await selectBLEdevices()
 
-    bleClient = bleak.BleakClient(bleAddr)
+    # Linux/BlueZ workaround: BleakClient(MAC).connect() can time out even
+    # when the device is advertising, because BlueZ's standard Connect path
+    # doesn't keep the radio actively receiving for the device. Running an
+    # active BleakScanner in parallel keeps BlueZ in receive mode, so it acts
+    # on the next advertising packet immediately. Verified empirically against
+    # an Omron BP5360 advertising every ~1.7s. Scanner is stopped in finally.
+    #
+    # Multi-adapter Linux machines also need an explicit adapter pin: BlueZ
+    # scopes the device record to whichever adapter discovered it, and a
+    # subsequent connect on a different adapter no-ops silently. We extract
+    # the adapter from the BLEDevice's BlueZ path after detection.
+    scanner = None
+    if sys.platform == "linux":
+        logger.debug("Linux: pre-scanning to keep BlueZ in receive mode for connect.")
+        found_device_holder = [None]
+        found_event = asyncio.Event()
+        def _detection_cb(device, _adv_data):
+            if device.address.upper() == bleAddr.upper() and not found_device_holder[0]:
+                found_device_holder[0] = device
+                found_event.set()
+        scanner = bleak.BleakScanner(detection_callback=_detection_cb, scanning_mode="active", bluez={"adapter": "hci1"})  # TODO: derive from CLI arg or auto-discover
+        await scanner.start()
+        try:
+            await asyncio.wait_for(found_event.wait(), timeout=30)
+        except asyncio.TimeoutError:
+            await scanner.stop()
+            raise OSError(f"Device {bleAddr} not advertising within 30s. Verify it's in range and powered.")
+        # Extract adapter from BlueZ device path (e.g. /org/bluez/hci1/dev_...)
+        adapter_name = None
+        details = getattr(found_device_holder[0], "details", None)
+        if isinstance(details, dict):
+            path = details.get("path") or details.get("props", {}).get("Adapter")
+            if isinstance(path, str) and "/hci" in path:
+                adapter_name = path.split("/")[3] if path.startswith("/org/bluez/") else None
+        client_kwargs = {"bluez": {"adapter": adapter_name}} if adapter_name else {}
+        logger.debug(f"Connecting via adapter: {adapter_name or 'default'}")
+        bleClient = bleak.BleakClient(found_device_holder[0], **client_kwargs)
+    else:
+        bleClient = bleak.BleakClient(bleAddr)
+
     try:
         logger.info(f"Attempt connecting to {bleAddr}.")
         await bleClient.connect()
@@ -451,5 +490,10 @@ async def main():
                 logger.error("Bleak AssertionError during disconnect. This usually happens when using the bluezdbus adapter.")
                 logger.error("You can find the upstream issue at: https://github.com/hbldh/bleak/issues/641")
                 logger.error(f"AssertionError details: {e}")
+        if scanner is not None:
+            try:
+                await scanner.stop()
+            except Exception as e:
+                logger.debug(f"Scanner stop raised (ignored): {e}")
 
 asyncio.run(main())
