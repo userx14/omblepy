@@ -32,13 +32,14 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
     supportsOsBondingOnly      = True
 
     deviceEndianess            = "little"
-    # Two user record slots, matching the HEM-7380T1 layout. NOTE: the slot
-    # index here ("user 1" = first list element, "user 2" = second) may NOT
-    # match the user labels on the cuff display. Empirically on one BP5360
-    # sample, all of one user's measurements landed in slot index 1 (0x080C),
-    # while slot index 0 (0x01CC) and probed addresses 0x0098 and 0x0E4C were
-    # empty. Recommend: take a known measurement in each cuff user mode
-    # (Guest / User 1 / User 2) and verify which CSV it lands in.
+    # Two record slots; matches HEM-7380T1 layout. NOTE on user identification:
+    # the cuff stores BOTH "User 1" and "User 2" measurements in slot index 1
+    # (0x080C); they are distinguished by metadata bytes within the record
+    # itself. byte 13 is consistently 0x01 for User 1 records, 0xFF for User 2
+    # records. Bytes 8-15 hold structured metadata for User 1 (sequence
+    # counter at byte 9, etc.) and are all-FF for User 2. Guest measurements
+    # are not stored to EEPROM at all (verified empirically). The slot at
+    # 0x01CC is reserved but appears unused on the BP5360 sample tested.
     userStartAdressesList      = [0x01CC, 0x080C]
     perUserRecordsCountList    = [100, 100]
     recordByteSize             = 0x10
