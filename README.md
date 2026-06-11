@@ -58,7 +58,7 @@ This is most important when you are trying to add support for a new device.
 | [HEM-7530T](deviceSpecific/hem-7530t.py) | Omron Complete                   | ✔️ | ✔️ (no EKG) | ❌ | ❌ | Toei79, userx14  |
 | [HEM-7600T](deviceSpecific/hem-7600t.py) | Omron Evolv 				      	      | ✔️ | ✔️ | ✔️ | ✔️ | vulcainman 				        |
 | [HEM-6232T](deviceSpecific/hem-6232T.py) | RS7 Intelli IT			      	      | ✔️ | ✔️ | ❓ | ❓ |  invertedburger				        |
-| HEM-7197T | M4/X4 Connect AFib			      	      | ❌ (encrypted traffic) | ❌ (encrypted, see issues) | ❌ | ❌ | |
+| HEM-7196T | M4/X4 Connect AFib			      	      | ❌ (encrypted traffic) | ❌ (encrypted, see issues) | ❌ | ❌ | |
 
 ✔️=tested working, ❓=not tested , ❌=not supported yet <br>
 
