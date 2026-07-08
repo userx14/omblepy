@@ -119,3 +119,5 @@ can be used to import the data from the omron device into Garmin Connect.
 
 The USB communication of selected omron medical equipment is implemented by <a href=https://github.com/openyou/libomron>libomron</a>
 and shares some similarities with the bluetooth communication.
+
+A related project provides a Home Assistant plugin for ESP32: <a href="https://github.com/eigger/hass-omron">hass-omron</a>.
