@@ -284,6 +284,83 @@ class bluetoothTxRxHandler:
         await bleClient.stop_notify(self.deviceUnlock_UUID)
         return
 
+async def registerLinuxAutoAcceptPairingAgent():
+    """Register an auto-accepting BlueZ pairing agent (Linux only).
+
+    Omron devices request BLE bonding (SMP Security Request) before they
+    accept key programming; until the link is encrypted they answer 0x820f.
+    On desktop Linux the bonding confirmation is routed to the session's
+    default pairing agent (a GUI dialog/notification), which may be
+    impossible to answer on minimal setups (e.g. sway + mako). Registering
+    our own NoInputNoOutput default agent accepts the bonding request
+    automatically, so pairing works from the terminal without interaction.
+
+    Returns the connected D-Bus MessageBus (caller must disconnect) or None
+    if the agent could not be registered.
+    """
+    try:
+        from dbus_fast import BusType
+        from dbus_fast.aio import MessageBus
+        from dbus_fast.service import ServiceInterface, method
+    except ImportError:
+        logger.warning("dbus_fast not available, cannot register auto-accept pairing agent.")
+        return None
+
+    class AutoAcceptAgent(ServiceInterface):
+        def __init__(self):
+            super().__init__("org.bluez.Agent1")
+
+        @method()
+        def Release(self):
+            pass
+
+        @method()
+        def RequestPinCode(self, device: "o") -> "s":
+            return "0000"
+
+        @method()
+        def DisplayPinCode(self, device: "o", pincode: "s"):
+            pass
+
+        @method()
+        def RequestPasskey(self, device: "o") -> "u":
+            return 0
+
+        @method()
+        def DisplayPasskey(self, device: "o", passkey: "u", entered: "q"):
+            pass
+
+        @method()
+        def RequestConfirmation(self, device: "o", passkey: "u"):
+            logger.debug(f"pairing agent: auto-accepting confirmation for {device}")
+
+        @method()
+        def RequestAuthorization(self, device: "o"):
+            logger.debug(f"pairing agent: auto-accepting authorization for {device}")
+
+        @method()
+        def AuthorizeService(self, device: "o", uuid: "s"):
+            pass
+
+        @method()
+        def Cancel(self):
+            pass
+
+    agentPath = "/omblepy/agent"
+    try:
+        bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+        bus.export(agentPath, AutoAcceptAgent())
+        introspection = await bus.introspect("org.bluez", "/org/bluez")
+        bluezObj = bus.get_proxy_object("org.bluez", "/org/bluez", introspection)
+        agentManager = bluezObj.get_interface("org.bluez.AgentManager1")
+        await agentManager.call_register_agent(agentPath, "NoInputNoOutput")
+        await agentManager.call_request_default_agent(agentPath)
+        logger.debug("Registered auto-accept BlueZ pairing agent as default agent.")
+        return bus
+    except Exception as e:
+        logger.warning(f"Could not register auto-accept pairing agent: {e}")
+        return None
+
 def readCsv(filename):
     records = []
     with open(filename, mode='r', newline='', encoding='utf-8') as infile:
@@ -448,7 +525,10 @@ async def main():
     else:
         bleClient = bleak.BleakClient(bleAddr)
 
+    pairingAgentBus = None
     try:
+        if(args.pair and sys.platform == "linux"):
+            pairingAgentBus = await registerLinuxAutoAcceptPairingAgent()
         logger.info(f"Attempt connecting to {bleAddr}.")
         await bleClient.connect()
         if(args.pair and getattr(devSpecificDriver, "supportsOsBondingOnly", False)):
@@ -473,6 +553,16 @@ async def main():
                              or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")
         bluetoothTxRxObj = bluetoothTxRxHandler(devSpecificDriver)
         if(args.pair):
+            if sys.platform == "linux":
+                # Omron devices only accept key programming over an encrypted
+                # (bonded) link; they answer 0x820f until bonding completes.
+                # Request bonding explicitly instead of relying on the device's
+                # SMP Security Request being handled by a desktop agent.
+                logger.info("Requesting BLE bonding (required before key programming).")
+                try:
+                    await bleClient.pair()
+                except Exception as e:
+                    logger.warning(f"Explicit BLE bonding request failed ({e}), continuing anyway.")
             await bluetoothTxRxObj.writeNewUnlockKey()
             #this seems to be necessary when the device has not been paired to any device
             await bluetoothTxRxObj.startTransmission()
@@ -499,5 +589,10 @@ async def main():
                 await scanner.stop()
             except Exception as e:
                 logger.debug(f"Scanner stop raised (ignored): {e}")
+        if pairingAgentBus is not None:
+            try:
+                pairingAgentBus.disconnect()
+            except Exception as e:
+                logger.debug(f"Pairing agent bus disconnect raised (ignored): {e}")
 
 asyncio.run(main())

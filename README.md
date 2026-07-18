@@ -75,7 +75,9 @@ since the calibration data for the pressure sensor is likeley also stored there.
   - Do not use the CSR harmony stack (CSR 8510 based usb dongles), it is incompatible.
 - Linux specific
   - Preferably test on a device with only one bluetooth adapter connected.
-  - on non gui systems open `bluetoothctl` in a second multiplexed terminal for the bluetooth pairing to work,
+  - during `-p` pairing omblepy registers a temporary auto-accepting BlueZ pairing agent and requests bonding itself,
+    so no desktop pairing dialog needs to be confirmed (helpful on minimal setups like sway/i3 where the dialog cannot be answered)
+  - on non gui systems, if the built-in agent registration fails, open `bluetoothctl` in a second multiplexed terminal for the bluetooth pairing to work,
     for an automated solution see [this issue](https://github.com/userx14/omblepy/issues/25#issuecomment-2175493249)
   - Restart the bluetooth stack `sudo systemctl restart bluetooth`.
   - Delete the bluetooth adapter cache with `sudo rm -r /var/lib/bluetooth/$yourBtCardMacAddress`.
