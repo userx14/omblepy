@@ -5,10 +5,13 @@ import re                                                           #regex to ma
 import argparse                                                     #to process command line arguments
 import datetime
 import sys
+import platform
 import pathlib
 import logging
 import csv
 import json
+
+import bluez_linux    #Linux/BlueZ specific workarounds, functions only called after OS check
 
 #global variables
 bleClient           = None
@@ -42,6 +45,7 @@ class bluetoothTxRxHandler:
         self.deviceUnlock_UUID          = getattr(deviceDriver, "deviceUnlock_UUID", LEGACY_DEVICE_UNLOCK_UUID)
         self.requiresUnlock             = getattr(deviceDriver, "requiresUnlock", True)
         self.supportsPairing            = getattr(deviceDriver, "supportsPairing", True)
+        self.needsSmpAgent              = getattr(deviceDriver, "needsSmpAgent", False)
         self.currentRxNotifyStateFlag   = False
         self.rxPacketType               = None
         self.rxEepromAddress            = None
@@ -232,6 +236,15 @@ class bluetoothTxRxHandler:
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
 
+        # Some devices (e.g. BP4350) require BLE-level SMP pairing with a
+        # registered NoInputNoOutput agent before key programming works.
+        smp_bus = None
+        if self.needsSmpAgent and platform.system() == 'Linux':
+            smp_bus = await bluez_linux.register_smp_agent()
+            if smp_bus:
+                await bluez_linux.perform_smp_pairing(smp_bus, bleClient.address)
+                await asyncio.sleep(1.0)
+
         # Enable RX channel notifications first - this triggers the device to send
         # an SMP Security Request, which kicks off the BLE pairing process
         logger.debug("Enabling RX channel notifications to trigger pairing")
@@ -265,6 +278,8 @@ class bluetoothTxRxHandler:
             raise ValueError(f"Failure to program new key. Response: {deviceResponse}")
         await bleClient.stop_notify(self.deviceUnlock_UUID)
         await bleClient.stop_notify(self.deviceRxChannelUUIDs[0])
+        if smp_bus:
+            await bluez_linux.unregister_smp_agent(smp_bus)
         logger.info(f"Paired device successfully with new key {newKeyByteArray}.")
         logger.info("From now on you can connect omit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
         return
@@ -405,46 +420,14 @@ async def main():
         print(" -do not accept any pairing dialog until you selected your device in the following list\n")
         bleAddr = await selectBLEdevices()
 
-    # Linux/BlueZ workaround: BleakClient(MAC).connect() can time out even
-    # when the device is advertising, because BlueZ's standard Connect path
-    # doesn't keep the radio actively receiving for the device. Running an
-    # active BleakScanner in parallel keeps BlueZ in receive mode, so it acts
-    # on the next advertising packet immediately. Verified empirically against
-    # an Omron BP5360 advertising every ~1.7s. Scanner is stopped in finally.
-    #
-    # Multi-adapter Linux machines also need an explicit adapter pin: BlueZ
-    # scopes the device record to whichever adapter discovered it, and a
-    # subsequent connect on a different adapter no-ops silently. We extract
-    # the adapter from the BLEDevice's BlueZ path after detection.
+    # On Linux, use an active pre-scan workaround for reliable connects
+    # (see bluez_linux.find_device_with_active_scan). Scanner is stopped in finally.
     scanner = None
     if sys.platform == "linux":
-        logger.debug("Linux: pre-scanning to keep BlueZ in receive mode for connect.")
-        found_device_holder = [None]
-        found_event = asyncio.Event()
-        def _detection_cb(device, _adv_data):
-            if device.address.upper() == bleAddr.upper() and not found_device_holder[0]:
-                found_device_holder[0] = device
-                found_event.set()
-        scanner_kwargs = {}
-        if args.adapter:
-            scanner_kwargs["bluez"] = {"adapter": args.adapter}
-        scanner = bleak.BleakScanner(detection_callback=_detection_cb, scanning_mode="active", **scanner_kwargs)
-        await scanner.start()
-        try:
-            await asyncio.wait_for(found_event.wait(), timeout=30)
-        except asyncio.TimeoutError:
-            await scanner.stop()
-            raise OSError(f"Device {bleAddr} not advertising within 30s. Verify it's in range and powered.")
-        # Extract adapter from BlueZ device path (e.g. /org/bluez/hci1/dev_...)
-        adapter_name = None
-        details = getattr(found_device_holder[0], "details", None)
-        if isinstance(details, dict):
-            path = details.get("path") or details.get("props", {}).get("Adapter")
-            if isinstance(path, str) and "/hci" in path:
-                adapter_name = path.split("/")[3] if path.startswith("/org/bluez/") else None
+        bleDevice, adapter_name, scanner = await bluez_linux.find_device_with_active_scan(bleAddr, args.adapter)
         client_kwargs = {"bluez": {"adapter": adapter_name}} if adapter_name else {}
         logger.debug(f"Connecting via adapter: {adapter_name or 'default'}")
-        bleClient = bleak.BleakClient(found_device_holder[0], **client_kwargs)
+        bleClient = bleak.BleakClient(bleDevice, **client_kwargs)
     else:
         bleClient = bleak.BleakClient(bleAddr)
 

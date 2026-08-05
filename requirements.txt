@@ -1,2 +1,3 @@
 terminaltables
 bleak
+dbus-fast; sys_platform == "linux"
