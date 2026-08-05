@@ -230,7 +230,7 @@ class bluetoothTxRxHandler:
         self.rxFinishedFlag = True
         return
 
-    async def writeNewUnlockKey(self, newKeyByteArray = pairingKey):
+    async def writeNewUnlockKey(self, newKeyByteArray = pairingKey, allowAutoBonding = False):
         if not self.supportsPairing:
             raise ValueError("Pairing mode is not supported for this device in omblepy.")
         if(len(newKeyByteArray) != 16):
@@ -238,12 +238,19 @@ class bluetoothTxRxHandler:
 
         # Some devices (e.g. BP4350) require BLE-level SMP pairing with a
         # registered NoInputNoOutput agent before key programming works.
+        # Because the agent accepts the bonding request without user
+        # interaction, this is only done when explicitly enabled via --bond.
         smp_bus = None
         if self.needsSmpAgent and platform.system() == 'Linux':
-            smp_bus = await bluez_linux.register_smp_agent()
-            if smp_bus:
-                await bluez_linux.perform_smp_pairing(smp_bus, bleClient.address)
-                await asyncio.sleep(1.0)
+            if allowAutoBonding:
+                smp_bus = await bluez_linux.register_smp_agent()
+                if smp_bus:
+                    await bluez_linux.perform_smp_pairing(smp_bus, bleClient.address)
+                    await asyncio.sleep(1.0)
+            else:
+                logger.warning("This device requires an active BLE bond for key programming. "
+                               "If pairing fails, either bond the device in your OS bluetooth settings first, "
+                               "or re-run with --bond to let omblepy create the bond automatically.")
 
         # Enable RX channel notifications first - this triggers the device to send
         # an SMP Security Request, which kicks off the BLE pairing process
@@ -364,6 +371,7 @@ async def main():
     parser.add_argument('-d', "--device",     required="true",  type=ascii, help="Device name (e.g. hem-7322t, see deviceSpecific folder)")
     parser.add_argument("--loggerDebug",      action="store_true",          help="Enable verbose logger output")
     parser.add_argument("-p", "--pair",       action="store_true",          help="Programm the pairing key into the device. Needs to be done only once.")
+    parser.add_argument("--bond",             action="store_true",          help="Linux/BlueZ only: allow omblepy to automatically create a BLE bond during pairing (registers a NoInputNoOutput agent that accepts the bonding request without user interaction). Required for devices like the BP4350 that only pair over an active bond. Disabled by default for security reasons.")
     parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6 (win/lin) or A114A715-43E5-45A0-8683-8676EEAE885D (macOS)). If not specified, will scan for devices and display a selection dialog.")
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
@@ -456,7 +464,7 @@ async def main():
                              or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")
         bluetoothTxRxObj = bluetoothTxRxHandler(devSpecificDriver)
         if(args.pair):
-            await bluetoothTxRxObj.writeNewUnlockKey()
+            await bluetoothTxRxObj.writeNewUnlockKey(allowAutoBonding = args.bond)
             #this seems to be necessary when the device has not been paired to any device
             await bluetoothTxRxObj.startTransmission()
             await bluetoothTxRxObj.endTransmission()
