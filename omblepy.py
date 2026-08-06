@@ -5,10 +5,13 @@ import re                                                           #regex to ma
 import argparse                                                     #to process command line arguments
 import datetime
 import sys
+import platform
 import pathlib
 import logging
 import csv
 import json
+
+import bluez_linux    #Linux/BlueZ specific workarounds, functions only called after OS check
 
 #global variables
 bleClient           = None
@@ -42,6 +45,7 @@ class bluetoothTxRxHandler:
         self.deviceUnlock_UUID          = getattr(deviceDriver, "deviceUnlock_UUID", LEGACY_DEVICE_UNLOCK_UUID)
         self.requiresUnlock             = getattr(deviceDriver, "requiresUnlock", True)
         self.supportsPairing            = getattr(deviceDriver, "supportsPairing", True)
+        self.needsSmpAgent              = getattr(deviceDriver, "needsSmpAgent", False)
         self.currentRxNotifyStateFlag   = False
         self.rxPacketType               = None
         self.rxEepromAddress            = None
@@ -226,11 +230,27 @@ class bluetoothTxRxHandler:
         self.rxFinishedFlag = True
         return
 
-    async def writeNewUnlockKey(self, newKeyByteArray = pairingKey):
+    async def writeNewUnlockKey(self, newKeyByteArray = pairingKey, allowAutoBonding = False):
         if not self.supportsPairing:
             raise ValueError("Pairing mode is not supported for this device in omblepy.")
         if(len(newKeyByteArray) != 16):
             raise ValueError(f"key has to be 16 bytes long, is {len(newKeyByteArray)}")
+
+        # Some devices (e.g. BP4350) require BLE-level SMP pairing with a
+        # registered NoInputNoOutput agent before key programming works.
+        # Because the agent accepts the bonding request without user
+        # interaction, this is only done when explicitly enabled via --bond.
+        smp_bus = None
+        if self.needsSmpAgent and platform.system() == 'Linux':
+            if allowAutoBonding:
+                smp_bus = await bluez_linux.register_smp_agent()
+                if smp_bus:
+                    await bluez_linux.perform_smp_pairing(smp_bus, bleClient.address)
+                    await asyncio.sleep(1.0)
+            else:
+                logger.warning("This device requires an active BLE bond for key programming. "
+                               "If pairing fails, either bond the device in your OS bluetooth settings first, "
+                               "or re-run with --bond to let omblepy create the bond automatically.")
 
         # Enable RX channel notifications first - this triggers the device to send
         # an SMP Security Request, which kicks off the BLE pairing process
@@ -265,6 +285,8 @@ class bluetoothTxRxHandler:
             raise ValueError(f"Failure to program new key. Response: {deviceResponse}")
         await bleClient.stop_notify(self.deviceUnlock_UUID)
         await bleClient.stop_notify(self.deviceRxChannelUUIDs[0])
+        if smp_bus:
+            await bluez_linux.unregister_smp_agent(smp_bus)
         logger.info(f"Paired device successfully with new key {newKeyByteArray}.")
         logger.info("From now on you can connect omit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
         return
@@ -349,6 +371,7 @@ async def main():
     parser.add_argument('-d', "--device",     required="true",  type=ascii, help="Device name (e.g. hem-7322t, see deviceSpecific folder)")
     parser.add_argument("--loggerDebug",      action="store_true",          help="Enable verbose logger output")
     parser.add_argument("-p", "--pair",       action="store_true",          help="Programm the pairing key into the device. Needs to be done only once.")
+    parser.add_argument("--bond",             action="store_true",          help="Linux/BlueZ only: allow omblepy to automatically create a BLE bond during pairing (registers a NoInputNoOutput agent that accepts the bonding request without user interaction). Required for devices like the BP4350 that only pair over an active bond. Disabled by default for security reasons.")
     parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6 (win/lin) or A114A715-43E5-45A0-8683-8676EEAE885D (macOS)). If not specified, will scan for devices and display a selection dialog.")
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
@@ -405,46 +428,14 @@ async def main():
         print(" -do not accept any pairing dialog until you selected your device in the following list\n")
         bleAddr = await selectBLEdevices()
 
-    # Linux/BlueZ workaround: BleakClient(MAC).connect() can time out even
-    # when the device is advertising, because BlueZ's standard Connect path
-    # doesn't keep the radio actively receiving for the device. Running an
-    # active BleakScanner in parallel keeps BlueZ in receive mode, so it acts
-    # on the next advertising packet immediately. Verified empirically against
-    # an Omron BP5360 advertising every ~1.7s. Scanner is stopped in finally.
-    #
-    # Multi-adapter Linux machines also need an explicit adapter pin: BlueZ
-    # scopes the device record to whichever adapter discovered it, and a
-    # subsequent connect on a different adapter no-ops silently. We extract
-    # the adapter from the BLEDevice's BlueZ path after detection.
+    # On Linux, use an active pre-scan workaround for reliable connects
+    # (see bluez_linux.find_device_with_active_scan). Scanner is stopped in finally.
     scanner = None
     if sys.platform == "linux":
-        logger.debug("Linux: pre-scanning to keep BlueZ in receive mode for connect.")
-        found_device_holder = [None]
-        found_event = asyncio.Event()
-        def _detection_cb(device, _adv_data):
-            if device.address.upper() == bleAddr.upper() and not found_device_holder[0]:
-                found_device_holder[0] = device
-                found_event.set()
-        scanner_kwargs = {}
-        if args.adapter:
-            scanner_kwargs["bluez"] = {"adapter": args.adapter}
-        scanner = bleak.BleakScanner(detection_callback=_detection_cb, scanning_mode="active", **scanner_kwargs)
-        await scanner.start()
-        try:
-            await asyncio.wait_for(found_event.wait(), timeout=30)
-        except asyncio.TimeoutError:
-            await scanner.stop()
-            raise OSError(f"Device {bleAddr} not advertising within 30s. Verify it's in range and powered.")
-        # Extract adapter from BlueZ device path (e.g. /org/bluez/hci1/dev_...)
-        adapter_name = None
-        details = getattr(found_device_holder[0], "details", None)
-        if isinstance(details, dict):
-            path = details.get("path") or details.get("props", {}).get("Adapter")
-            if isinstance(path, str) and "/hci" in path:
-                adapter_name = path.split("/")[3] if path.startswith("/org/bluez/") else None
+        bleDevice, adapter_name, scanner = await bluez_linux.find_device_with_active_scan(bleAddr, args.adapter)
         client_kwargs = {"bluez": {"adapter": adapter_name}} if adapter_name else {}
         logger.debug(f"Connecting via adapter: {adapter_name or 'default'}")
-        bleClient = bleak.BleakClient(found_device_holder[0], **client_kwargs)
+        bleClient = bleak.BleakClient(bleDevice, **client_kwargs)
     else:
         bleClient = bleak.BleakClient(bleAddr)
 
@@ -473,7 +464,7 @@ async def main():
                              or that your OS has a bug when reading BT LE device attributes (certain linux versions).""")
         bluetoothTxRxObj = bluetoothTxRxHandler(devSpecificDriver)
         if(args.pair):
-            await bluetoothTxRxObj.writeNewUnlockKey()
+            await bluetoothTxRxObj.writeNewUnlockKey(allowAutoBonding = args.bond)
             #this seems to be necessary when the device has not been paired to any device
             await bluetoothTxRxObj.startTransmission()
             await bluetoothTxRxObj.endTransmission()

@@ -58,9 +58,12 @@ This is most important when you are trying to add support for a new device.
 | [HEM-7530T](deviceSpecific/hem-7530t.py) | Omron Complete                   | ✔️ | ✔️ (no EKG) | ❌ | ❌ | Toei79, userx14  |
 | [HEM-7600T](deviceSpecific/hem-7600t.py) | Omron Evolv 				      	      | ✔️ | ✔️ | ✔️ | ✔️ | vulcainman 				        |
 | [HEM-6232T](deviceSpecific/hem-6232T.py) | RS7 Intelli IT			      	      | ✔️ | ✔️ | ❓ | ❓ |  invertedburger				        |
+| [BP4350](deviceSpecific/bp4350.py)       | BP4350 (Gold Wrist / HEM-6232T-Z), alias of HEM-6232T | ✔️ | ✔️ | ❓ | ❓ | nullvariable                      |
 | HEM-7196T | M4/X4 Connect AFib			      	      | ❌ (encrypted traffic) | ❌ (encrypted, see issues) | ❌ | ❌ | |
 
 ✔️=tested working, ❓=not tested , ❌=not supported yet <br>
+
+**Note (BP4350):** The BP4350 is the US-market HEM-6232T-Z and uses the HEM-6232T driver unchanged. Despite advertising OMSEC service UUIDs in its GATT table, it follows the same standard unlock-key pairing flow as other omblepy devices, but requires an active BLE bond (SMP pairing) before the key programming flow will succeed. On Linux, pass `--bond` together with `-p` to let omblepy create the bond automatically via a BlueZ NoInputNoOutput agent (uses `dbus-fast`); alternatively, bond the device in your OS bluetooth settings before pairing. Pairing on Windows/macOS is untested.
 
 Please open an issue if you can test a feature or an currently unsupported device. <br>
 It is potentially dangerous to write to the eeprom on devices where the eeprom layout is unknown (see Flags table), <br>
