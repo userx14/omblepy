@@ -33,13 +33,13 @@ Success is indicated by the message "Paired device successfully with new key".
 ### Flags table
 | flag  | alternative long flag  | always required | required on first connection | potentially dangerous eeprom write | description | usage example |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
-| `-h`  | `--help` | - | - | - | display help for all possible flags, similar to this table | `python3 ./omblepy.py -h` |
-| `-d`  | `--device` |✔️ | ✔️ | - | select which device library will be loaded from [here](deviceSpecific) | `python3 ./omblepy.py -d HEM-7322T` |
-| `-p`  | `--pair` | ❌ | ✔️ | - | use to write pairing key on first connection with this pc | `python3 ./omblepy.py -d HEM-7322T -p` |
-| `-m`  | `--mac` |❌ | ❌ | - | select omron devices mac and skip bluetooth scan and device selection dialog | `python3 ./omblepy.py -d HEM-7322T -m 11:22:33:44:55:66` |
-| `-n`  | `--newRecOnly` | ❌ | ❌ | ❗ | instead of downloading all records, check and update the "new records couter" and only transfer new records | `python3 ./omblepy.py -d HEM-7322T -n` |
-| `-t`  | `--timeSync` | ❌ | ❌ | ❗ | synchronize omron internal clock with system time | `python3 ./omblepy.py -d HEM-7322T -t` |
-|  |`--loggerDebug`  | ❌ | ❌ | - | displays every ingoing and outgoing data for debugging purposes | `python3 ./omblepy.py -d HEM-7322T --loggerDebug` |
+| `-h`  | `--help`        | - | - | - | display help for all possible flags, similar to this table | `python3 ./omblepy.py -h` |
+| `-d`  | `--device`      | ✔️ | ✔️ | - | select which device library will be loaded from [here](deviceSpecific) | `python3 ./omblepy.py -d HEM-7322T` |
+| `-p`  | `--pair`        | ❌ | ✔️ | - | use to write pairing key on first connection with this pc | `python3 ./omblepy.py -d HEM-7322T -p` |
+| `-m`  | `--mac`         | ❌ | ❌ | - | select omron devices mac and skip bluetooth scan and device selection dialog | `python3 ./omblepy.py -d HEM-7322T -m 11:22:33:44:55:66` |
+| `-n`  | `--newRecOnly`  | ❌ | ❌ | ❗ | instead of downloading all records, check and update the "new records couter" and only transfer new records | `python3 ./omblepy.py -d HEM-7322T -n` |
+| `-t`  | `--timeSync`    | ❌ | ❌ | ❗ | synchronize omron internal clock with system time | `python3 ./omblepy.py -d HEM-7322T -t` |
+|       |`--loggerDebug`  | ❌ | ❌ | - | displays every ingoing and outgoing data for debugging purposes | `python3 ./omblepy.py -d HEM-7322T --loggerDebug` |
 
 Potentially dangerous, refers to the possibility to mess up the calibration data for the pressure sensor, which is likely stored in the eeprom in the settings region.<br>
 This is most important when you are trying to add support for a new device.
@@ -48,17 +48,18 @@ This is most important when you are trying to add support for a new device.
 
 | device model | sold under name |  pairing | basic data readout | new record counter | time sync | contributors / testers / help by |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
-| [HEM-7150T](deviceSpecific/hem-7150t.py) | BP7250  | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14  |
-| [HEM-7155T](deviceSpecific/hem-7155t.py) | M400 / M4 / X4 smart	            | ✔️ | ✔️ | ✔️ | ✔️ | dromie, RobertWojtowicz, Nwanko |
-| [HEM-7322T](deviceSpecific/hem-7322t.py) | M700 Intelli IT 				        	| ✔️ | ✔️ | ✔️ | ✔️ | userx14 				  	      |
-| [HEM-7342T](deviceSpecific/hem-7342t.py) | BP7450                           | ✔️ | ✔️ | ❓  | ❓ | Toei79, userx14           |
-| [HEM-7361T](deviceSpecific/hem-7361t.py) | M500 Intelli IT / M7 Intelli IT 	| ✔️ | ✔️ | ✔️ | ✔️ | LazyT, userx14, zivanfi, RobertWojtowicz |
-| [HEM-7380T1](deviceSpecific/hem-7380t1.py) | X7 Smart AFib / M7 Intelli IT AFib / EOSL / EBK | n/a | ✔️ | ❌ | ❌ | thiagoko |
-| [HEM-7377T1](deviceSpecific/hem-7377t1.py) | BP5360                           | n/a | ✔️ | ❌ | ✔️ | ojermo |
-| [HEM-7530T](deviceSpecific/hem-7530t.py) | Omron Complete                   | ✔️ | ✔️ (no EKG) | ❌ | ❌ | Toei79, userx14  |
-| [HEM-7600T](deviceSpecific/hem-7600t.py) | Omron Evolv 				      	      | ✔️ | ✔️ | ✔️ | ✔️ | vulcainman 				        |
-| [HEM-6232T](deviceSpecific/hem-6232T.py) | RS7 Intelli IT			      	      | ✔️ | ✔️ | ❓ | ❓ |  invertedburger				        |
-| HEM-7196T | M4/X4 Connect AFib			      	      | ❌ (encrypted traffic) | ❌ (encrypted, see issues) | ❌ | ❌ | |
+| [HEM-7150T](deviceSpecific/hem-7150t.py)   | BP7250                                           | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14  |
+| [HEM-7155T](deviceSpecific/hem-7155t.py)   | M400 / M4 / X4 smart	                            | ✔️ | ✔️ | ✔️ | ✔️ | dromie, RobertWojtowicz, Nwanko |
+| [HEM-7156T](deviceSpecific/hem-7156t.py)   |                                                  | ✔️ | ✔️ | ✔️ | ✔️ | fernandeshenrique15 |
+| [HEM-7322T](deviceSpecific/hem-7322t.py)   | M700 Intelli IT                                  | ✔️ | ✔️ | ✔️ | ✔️ | userx14 |
+| [HEM-7342T](deviceSpecific/hem-7342t.py)   | BP7450                                           | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14 |
+| [HEM-7361T](deviceSpecific/hem-7361t.py)   | M500 Intelli IT / M7 Intelli IT                  | ✔️ | ✔️ | ✔️ | ✔️ | LazyT, userx14, zivanfi, RobertWojtowicz |
+| [HEM-7380T1](deviceSpecific/hem-7380t1.py) | X7 Smart AFib / M7 Intelli IT AFib / EOSL / EBK  | n/a| ✔️ | ❌ | ❌ | thiagoko, paolotax |
+| [HEM-7377T1](deviceSpecific/hem-7377t1.py) | BP5360                                           | n/a| ✔️ | ❌ | ✔️ | ojermo |
+| [HEM-7530T](deviceSpecific/hem-7530t.py)   | Omron Complete                                   | ✔️ | ✔️ (no EKG) | ❌ | ❌ | Toei79, userx14  |
+| [HEM-7600T](deviceSpecific/hem-7600t.py)   | Omron Evolv                                      | ✔️ | ✔️ | ✔️ | ✔️ | vulcainman |
+| [HEM-6232T](deviceSpecific/hem-6232T.py)   | RS7 Intelli IT                                   | ✔️ | ✔️ | ❓ | ❓ |  invertedburger |
+| HEM-7196T                                  | M4/X4 Connect AFib                               | ❌ (encrypted traffic) | ❌ (encrypted, see issues) | ❌ | ❌ | |
 
 ✔️=tested working, ❓=not tested , ❌=not supported yet <br>
 
@@ -108,7 +109,6 @@ Example message sent to request a read of 0x26 bytes starting from address 0x026
 messagelength | command type      | start address | readsize | padding     | crc, such that all bytes xored = 0
 ---           | ---               | ---           | ---      | ---         | ---
 0x08          | 0x0100            | 0x0260        | 0x26     | 0x00        | 0x4d
-
 
 ## Related Projects
 A huge thank you goes to LazyT and his <a href=https://codeberg.org/LazyT/ubpm>UBPM project</a>
