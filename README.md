@@ -48,6 +48,7 @@ This is most important when you are trying to add support for a new device.
 
 | device model | sold under name |  pairing | basic data readout | new record counter | time sync | contributors / testers / help by |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
+| [HEM-7143T2](deviceSpecific/hem-7143t2.py) | X2 Smart                                        | n/a| ✔️ | ❌ | ❌ | iu3qez |
 | [HEM-7150T](deviceSpecific/hem-7150t.py)   | BP7250                                           | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14  |
 | [HEM-7155T](deviceSpecific/hem-7155t.py)   | M400 / M4 / X4 smart	                            | ✔️ | ✔️ | ✔️ | ✔️ | dromie, RobertWojtowicz, Nwanko |
 | [HEM-7156T](deviceSpecific/hem-7156t.py)   |                                                  | ✔️ | ✔️ | ✔️ | ✔️ | fernandeshenrique15 |
