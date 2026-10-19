@@ -28,8 +28,6 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
     settingsTimeSyncBytes      = None
 
     def deviceSpecific_ParseRecordFormat(self, singleRecordAsByteArray):
-        if rawSys > 0xE1:
-            raise ValueError("record slot is empty")
         recordDict             = dict()
         minute                 = self._bytearrayBitsToInt(singleRecordAsByteArray, 68, 73)
         second                 = self._bytearrayBitsToInt(singleRecordAsByteArray, 74, 79)
@@ -43,6 +41,8 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
         recordDict["bpm"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 104, 111)
         recordDict["dia"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 112, 119)
         recordDict["sys"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 120,  127) + 25
+        if recordDict["sys"] > 0xFA:
+            raise ValueError("record slot is empty")
         recordDict["datetime"] = datetime.datetime(year, month, day, hour, minute, second)
         return recordDict
 
