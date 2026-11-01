@@ -226,7 +226,9 @@ class bluetoothTxRxHandler:
         self.rxFinishedFlag = True
         return
 
-    async def writeNewUnlockKey(self, newKeyByteArray = pairingKey):
+    async def writeNewUnlockKey(self, newKeyByteArray = None):
+        if newKeyByteArray is None: #look up the global at call time, so that a key given with -k is used
+            newKeyByteArray = pairingKey
         if not self.supportsPairing:
             raise ValueError("Pairing mode is not supported for this device in omblepy.")
         if(len(newKeyByteArray) != 16):
@@ -269,7 +271,9 @@ class bluetoothTxRxHandler:
         logger.info("From now on you can connect omit the -p flag, even on other PCs with different bluetooth-mac-addresses.")
         return
 
-    async def unlockWithUnlockKey(self, keyByteArray = pairingKey):
+    async def unlockWithUnlockKey(self, keyByteArray = None):
+        if keyByteArray is None: #look up the global at call time, so that a key given with -k is used
+            keyByteArray = pairingKey
         if not self.requiresUnlock:
             return
         await bleClient.start_notify(self.deviceUnlock_UUID, self._callbackForUnlockChannel)
