@@ -9,8 +9,7 @@ from sharedDriver import sharedDeviceDriverCode
 class deviceSpecificDriver(sharedDeviceDriverCode):
     """
     Mapped on a HEM-7280T-E (MIT5s Connect). Same ring buffers, settings block and record format as the HEM-7322T.
-    Deleting a user's records on the device only resets its counters, the records stay in the ring buffer.
-    So the record counters are used to read only the records the device still holds.
+    Deleting a user's records on the device only resets its counters, the records stay in the ring buffer, so reading without -n also returns them.
     The device acknowledges writes to any address, but only keeps the ones to the settings write address.
     """
     deviceEndianess                 = "big"
@@ -24,32 +23,6 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
 
     settingsUnreadRecordsBytes      = [0x00, 0x08]
     settingsTimeSyncBytes           = [0x14, 0x1e]
-
-    #8 bytes: week table pointer per user, then stored records counter per user
-    recordCountersAddress           = 0x0210
-
-    async def getRecords(self, btobj, useUnreadCounter, syncTime):
-        self.btobj = btobj #_getReadCommands_AllRecords needs it to read the record counters
-        return await super().getRecords(btobj, useUnreadCounter, syncTime)
-
-    async def _getReadCommands_AllRecords(self):
-        allUsersReadCommandsList = []
-        unreadRecordsSectionSize = self.settingsUnreadRecordsBytes[1] - self.settingsUnreadRecordsBytes[0]
-        readRecordsInfoByteArray = await self.btobj.readContinuousEepromData(self.settingsReadAddress + self.settingsUnreadRecordsBytes[0], unreadRecordsSectionSize, unreadRecordsSectionSize)
-        recordCountersByteArray  = await self.btobj.readContinuousEepromData(self.recordCountersAddress, 8, 8)
-        for userIdx in range(len(self.userStartAdressesList)):
-            lastWrittenSlotForUser = self._bytearrayBitsToInt(readRecordsInfoByteArray[2*userIdx+0:2*userIdx+2], 8, 15)
-            storedRecordsCounter   = recordCountersByteArray[2*userIdx+4:2*userIdx+6]
-            if(self._bytearrayBitsToInt(storedRecordsCounter, 1, 1)): #0x4000 marks a full ring buffer
-                storedRecordsForUser = self.perUserRecordsCountList[userIdx]
-            else: #lower byte is the number of records, upper byte seen as 0x80 and 0x00
-                storedRecordsForUser = min(self._bytearrayBitsToInt(storedRecordsCounter, 8, 15), self.perUserRecordsCountList[userIdx])
-
-            logger.info(f"Current ring buffer slot user{userIdx+1}: {lastWrittenSlotForUser}.")
-            logger.info(f"Stored records user{userIdx+1}: {storedRecordsForUser}.")
-            readCmds = self.calcRingBufferRecordReadLocations(userIdx, storedRecordsForUser, lastWrittenSlotForUser)
-            allUsersReadCommandsList.append(readCmds)
-        return allUsersReadCommandsList
 
     def deviceSpecific_ParseRecordFormat(self, singleRecordAsByteArray):
         recordDict             = dict()
