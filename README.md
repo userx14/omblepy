@@ -56,6 +56,7 @@ This is most important when you are trying to add support for a new device.
 | [HEM-7342T](deviceSpecific/hem-7342t.py)   | BP7450                                           | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14 |
 | [HEM-7361T](deviceSpecific/hem-7361t.py)   | M500 Intelli IT / M7 Intelli IT                  | ✔️ | ✔️ | ✔️ | ✔️ | LazyT, userx14, zivanfi, RobertWojtowicz |
 | [HEM-7380T1](deviceSpecific/hem-7380t1.py) | X7 Smart AFib / M7 Intelli IT AFib / EOSL / EBK  | n/a| ✔️ | ❌ | ❌ | thiagoko, paolotax |
+| [HEM-7381T1](deviceSpecific/hem-7381t1.py) | BP7465 (US 10 Series)                            | n/a| ✔️ (user 1) | ❌ | ❌ | emperorpenguin24 |
 | [HEM-7377T1](deviceSpecific/hem-7377t1.py) | BP5360                                           | n/a| ✔️ | ❌ | ✔️ | ojermo |
 | [HEM-7530T](deviceSpecific/hem-7530t.py)   | Omron Complete                                   | ✔️ | ✔️ (no EKG) | ❌ | ❌ | Toei79, userx14  |
 | [HEM-7600T](deviceSpecific/hem-7600t.py)   | Omron Evolv                                      | ✔️ | ✔️ | ✔️ | ✔️ | vulcainman |
