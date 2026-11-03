@@ -23,8 +23,8 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
     supportsOsBondingOnly      = True
 
     deviceEndianess            = "little"
-    userStartAdressesList      = [0x080C]
-    perUserRecordsCountList    = [100]
+    userStartAdressesList      = [0x080C,0x0E4C]
+    perUserRecordsCountList    = [100,100]
     recordByteSize             = 0x10
     # Read one record per request: reads that touch unwritten slots are
     # answered with status 0xE3 and no data (see issue #75).

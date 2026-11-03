@@ -48,19 +48,19 @@ This is most important when you are trying to add support for a new device.
 
 | device model | sold under name |  pairing | basic data readout | new record counter | time sync | contributors / testers / help by |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
-| [HEM-7143T2](deviceSpecific/hem-7143t2.py) | X2 Smart                                        | n/a| ✔️ | ❌ | ❌ | iu3qez |
+| [HEM-7143T](deviceSpecific/hem-7143t.py)   | X2 Smart                                        | n/a| ✔️ | ❌ | ❌ | iu3qez |
 | [HEM-7150T](deviceSpecific/hem-7150t.py)   | BP7250                                           | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14  |
 | [HEM-7155T](deviceSpecific/hem-7155t.py)   | M400 / M4 / X4 smart	                            | ✔️ | ✔️ | ✔️ | ✔️ | dromie, RobertWojtowicz, Nwanko |
 | [HEM-7156T](deviceSpecific/hem-7156t.py)   |                                                  | ✔️ | ✔️ | ✔️ | ✔️ | fernandeshenrique15 |
 | [HEM-7322T](deviceSpecific/hem-7322t.py)   | M700 Intelli IT                                  | ✔️ | ✔️ | ✔️ | ✔️ | userx14 |
 | [HEM-7342T](deviceSpecific/hem-7342t.py)   | BP7450                                           | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14 |
 | [HEM-7361T](deviceSpecific/hem-7361t.py)   | M500 Intelli IT / M7 Intelli IT                  | ✔️ | ✔️ | ✔️ | ✔️ | LazyT, userx14, zivanfi, RobertWojtowicz |
-| [HEM-7380T1](deviceSpecific/hem-7380t1.py) | X7 Smart AFib / M7 Intelli IT AFib / EOSL / EBK  | n/a| ✔️ | ❌ | ❌ | thiagoko, paolotax |
-| [HEM-7381T1](deviceSpecific/hem-7381t1.py) | BP7465 (US 10 Series)                            | n/a| ✔️ (user 1) | ❌ | ❌ | emperorpenguin24 |
-| [HEM-7377T1](deviceSpecific/hem-7377t1.py) | BP5360                                           | n/a| ✔️ | ❌ | ✔️ | ojermo |
+| [HEM-7380T](deviceSpecific/hem-7380t.py)   | X7 Smart AFib / M7 Intelli IT AFib / EOSL / EBK  | n/a| ✔️ | ❌ | ❌ | thiagoko, paolotax |
+| [HEM-7381T](deviceSpecific/hem-7381t.py)   | BP7465 (US 10 Series)                            | n/a| ✔️ (user 1) | ❌ | ❌ | emperorpenguin24 |
+| [HEM-7377T](deviceSpecific/hem-7377t.py)   | BP5360                                           | n/a| ✔️ | ❌ | ✔️ | ojermo |
 | [HEM-7530T](deviceSpecific/hem-7530t.py)   | Omron Complete                                   | ✔️ | ✔️ (no EKG) | ❌ | ❌ | Toei79, userx14  |
 | [HEM-7600T](deviceSpecific/hem-7600t.py)   | Omron Evolv                                      | ✔️ | ✔️ | ✔️ | ✔️ | vulcainman |
-| [HEM-6232T](deviceSpecific/hem-6232T.py)   | RS7 Intelli IT                                   | ✔️ | ✔️ | ❓ | ❓ |  invertedburger |
+| [HEM-6232T](deviceSpecific/hem-6232t.py)   | RS7 Intelli IT                                   | ✔️ | ✔️ | ❓ | ❓ |  invertedburger |
 | HEM-7188T                                  | Omron M2+ Connect                                | ❌ (encrypted traffic) | ❌ (encrypted, see issues) | ❌ | ❌ | | 
 | HEM-7196T                                  | M4/X4 Connect AFib                               | ❌ (encrypted traffic) | ❌ (encrypted, see issues) | ❌ | ❌ | |
 
