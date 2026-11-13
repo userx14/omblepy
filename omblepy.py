@@ -310,7 +310,10 @@ def appendCsv(allRecords):
         allRecords[userIdx] = sorted(allRecords[userIdx], key = lambda x: x["datetime"])
         logger.info(f"writing data to user{userIdx+1}.csv")
         with open(f"user{userIdx+1}.csv", mode='w', newline='', encoding='utf-8') as outfile:
-            writer = csv.DictWriter(outfile, fieldnames = ["datetime", "dia", "sys", "bpm", "mov", "ihb"])
+            fieldnames = ["datetime", "dia", "sys", "bpm", "mov", "ihb"]
+            if any("timeValid" in recordDict for recordDict in allRecords[userIdx]):
+                fieldnames.append("timeValid") #only for drivers that report it, so other csv files keep their columns
+            writer = csv.DictWriter(outfile, fieldnames = fieldnames)
             writer.writeheader()
             for recordDict in allRecords[userIdx]:
                 recordDict["datetime"] = recordDict["datetime"].strftime("%Y-%m-%d %H:%M:%S")
