@@ -330,6 +330,19 @@ def saveUBPMJson(allRecords):
                                 'sys': int(rec['sys']), 'dia': int(rec['dia']), 'bpm': int(rec['bpm']), 'ihb': int(rec['ihb']), 'mov': int(rec['mov']) })
     f.write_text(json.dumps(UBPM, indent=4, sort_keys=True, default=str))
 
+def bluezAdapterKwargs(adapterName):
+    #bleak >= 3.0 takes the BlueZ adapter as bluez={"adapter": ...} and deprecates the top-level adapter keyword.
+    #Older bleak only reads the top-level keyword and silently ignores an "adapter" key inside bluez={...}.
+    if not adapterName:
+        return {}
+    try:
+        from bleak.args.bluez import BlueZScannerArgs
+        if "adapter" in (BlueZScannerArgs.__optional_keys__ | BlueZScannerArgs.__required_keys__):
+            return {"bluez": {"adapter": adapterName}}
+    except ImportError:
+        pass
+    return {"adapter": adapterName}
+
 async def selectBLEdevices():
     print("Select your Omron device from the list below...")
     while(True):
@@ -429,10 +442,7 @@ async def main():
             if device.address.upper() == bleAddr.upper() and not found_device_holder[0]:
                 found_device_holder[0] = device
                 found_event.set()
-        scanner_kwargs = {}
-        if args.adapter:
-            scanner_kwargs["bluez"] = {"adapter": args.adapter}
-        scanner = bleak.BleakScanner(detection_callback=_detection_cb, scanning_mode="active", **scanner_kwargs)
+        scanner = bleak.BleakScanner(detection_callback=_detection_cb, scanning_mode="active", **bluezAdapterKwargs(args.adapter))
         await scanner.start()
         try:
             await asyncio.wait_for(found_event.wait(), timeout=30)
@@ -446,7 +456,7 @@ async def main():
             path = details.get("path") or details.get("props", {}).get("Adapter")
             if isinstance(path, str) and "/hci" in path:
                 adapter_name = path.split("/")[3] if path.startswith("/org/bluez/") else None
-        client_kwargs = {"bluez": {"adapter": adapter_name}} if adapter_name else {}
+        client_kwargs = bluezAdapterKwargs(adapter_name)
         logger.debug(f"Connecting via adapter: {adapter_name or 'default'}")
         bleClient = bleak.BleakClient(found_device_holder[0], **client_kwargs)
     else:
