@@ -10,6 +10,7 @@ Cli tool to read records from Omron Bluetooth-LE measurement instruments
 | nixos25.10  | ✅ | in configuration.nix, set `hardware.bluetooth.enable = true;`. For temporary python shell:<br> `nix-shell -p python3.13 python313Packages.bleak python313Packages.terminaltables` |
 | debian13    | ✅ | Install python and packages with `apt install python3.13` `pip3 install bleak terminaltables` |
 | raspberry pi os <br>+ PI 4B / 5 | ✅ | see debian 13 for install instructions |
+| raspberry pi os 13 <br>+ PI Zero W (bt 4.1) | ✅ | tested with the HEM-7342T driver (pairing and readout) on BlueZ 5.82, see debian 13 for install instructions. Headless: see the pairing agent note under Troubleshooting → Linux. |
 | debian11/12 | ❓/❌ | unreliable, depends on bt-hardware / bluez-version if pairing will work. <br>Install python and packages with `apt install python3.12` `pip3 install bleak terminaltables` |
 | mac         | ✅ | Instead of bluetooth mac address, specify UUID. Thanks to deviantintegral for adding support. |
 | all os <br>+ esp32 | ✅ | bluetooth communication handled by esp32, bride via usb serial, see semi finished [esp32 bridge version](https://github.com/userx14/omblepy/tree/esp32bridge). |
@@ -54,7 +55,7 @@ This is most important when you are trying to add support for a new device.
 | [HEM-7156T](deviceSpecific/hem-7156t.py)   |                                                  | ✔️ | ✔️ | ✔️ | ✔️ | fernandeshenrique15 |
 | [HEM-7280T](deviceSpecific/hem-7280t.py)   | MIT5s Connect                                    | ❓ | ✔️ | ✔️ | ✔️ | atlastimed |
 | [HEM-7322T](deviceSpecific/hem-7322t.py)   | M700 Intelli IT                                  | ✔️ | ✔️ | ✔️ | ✔️ | userx14 |
-| [HEM-7342T](deviceSpecific/hem-7342t.py)   | BP7450                                           | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14 |
+| [HEM-7342T](deviceSpecific/hem-7342t.py)   | BP7450 / BP7455CAN (REF HEM-7342T1)              | ✔️ | ✔️ | ❓ | ❓ | Toei79, userx14 |
 | [HEM-7361T](deviceSpecific/hem-7361t.py)   | M500 Intelli IT / M7 Intelli IT                  | ✔️ | ✔️ | ✔️ | ✔️ | LazyT, userx14, zivanfi, RobertWojtowicz |
 | [HEM-7380T](deviceSpecific/hem-7380t.py)   | X7 Smart AFib / M7 Intelli IT AFib / EOSL / EBK  | n/a| ✔️ | ❌ | ❌ | thiagoko, paolotax |
 | [HEM-7381T](deviceSpecific/hem-7381t.py)   | BP7465 (US 10 Series)                            | n/a| ✔️ (user 1) | ❌ | ❌ | emperorpenguin24 |
@@ -82,6 +83,17 @@ since the calibration data for the pressure sensor is likeley also stored there.
   - Preferably test on a device with only one bluetooth adapter connected.
   - on non gui systems open `bluetoothctl` in a second multiplexed terminal for the bluetooth pairing to work,
     for an automated solution see [this issue](https://github.com/userx14/omblepy/issues/25#issuecomment-2175493249)
+  - On headless systems where nobody can answer the pairing prompt (see also [#22](https://github.com/userx14/omblepy/issues/22)), pairing fails even with `-P-` showing:
+    `btmon` shows a `User Confirmation Request` that never gets a reply, omblepy logs `820f` for every key programming attempt, and the device disconnects (reason 0x13).
+    A `NoInputNoOutput` agent from bluez-tools can answer it. It still asks "Authorize this device pairing (yes/no)?", so feed it `yes`:
+    ```
+    sudo apt install bluez-tools
+    bluetoothctl remove XX:XX:XX:XX:XX:XX                                  # clear any half finished pairing
+    tmux new -d -s agent 'yes yes | bt-agent -c NoInputNoOutput'           # registers itself as the default agent
+    python3 ./omblepy.py -p -d HEM-7342T -m XX:XX:XX:XX:XX:XX              # right after holding the bt button until -P- blinks
+    tmux kill-session -t agent                                             # stop it again, it accepts every pairing request
+    ```
+    PRs [#71](https://github.com/userx14/omblepy/pull/71) and [#72](https://github.com/userx14/omblepy/pull/72) aim to do this inside omblepy.
   - Restart the bluetooth stack `sudo systemctl restart bluetooth`.
   - Delete the bluetooth adapter cache with `sudo rm -r /var/lib/bluetooth/$yourBtCardMacAddress`.
   - If you have two bluetooth adapters in your system, open a second terminal alongside omblepy and use `bluetoothctl` to confirm pairing dialogs by typing `yes` when promped, some graphical interfaces will not show the pairing dialog for the second adapter.
