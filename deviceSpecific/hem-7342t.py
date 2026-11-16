@@ -23,7 +23,8 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
         recordDict             = dict()
         minute                 = self._bytearrayBitsToInt(singleRecordAsByteArray, 68, 73)
         second                 = self._bytearrayBitsToInt(singleRecordAsByteArray, 74, 79)
-        second                 = min([second, 59]) #for some reason the second value can range up to 63
+        recordDict["timeValid"] = int(second <= 59) #63 appears to mark records without a valid time (placeholder date), see the linked issue
+        second                 = min([second, 59]) #keep datetime constructible, use timeValid to tell real times from placeholders
         recordDict["mov"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 80, 80)
         recordDict["ihb"]      = self._bytearrayBitsToInt(singleRecordAsByteArray, 81, 81)
         month                  = self._bytearrayBitsToInt(singleRecordAsByteArray, 82, 85)
